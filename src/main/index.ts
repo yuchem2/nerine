@@ -16,7 +16,9 @@ function createWindow(): void {
       preload: join(import.meta.dirname, '../preload/index.cjs'),
       sandbox: true,
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      // Off by default in Electron. Phase 7 turns it back off with WebContentsView.
+      webviewTag: true
     }
   })
 
