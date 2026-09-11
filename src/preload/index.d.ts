@@ -1,4 +1,4 @@
-import type { BrowserState, NerineApi, TabState } from './index'
+import type { BrowserState, NerineApi, OverlayRequest as Request, TabState } from './index'
 
 declare global {
   interface Window {
@@ -8,6 +8,7 @@ declare global {
   namespace Nerine {
     type Tab = TabState
     type State = BrowserState
+    type OverlayRequest = Request
   }
 }
 

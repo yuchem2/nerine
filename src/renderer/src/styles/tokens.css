@@ -92,6 +92,8 @@
   --success: var(--green-500);
 
   --shadow-panel: 0 8px 24px rgb(0 0 0 / 0.45);
+  /* Scrims are alpha over whatever is behind them, so they are not in the ramp. */
+  --bg-backdrop: rgb(0 0 0 / 0.55);
 }
 
 /* Semantic: light */
@@ -121,4 +123,5 @@
   --success: var(--green-500);
 
   --shadow-panel: 0 8px 24px rgb(0 0 0 / 0.12);
+  --bg-backdrop: rgb(0 0 0 / 0.35);
 }

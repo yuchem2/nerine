@@ -22,6 +22,15 @@ export default defineConfig({
         '@renderer': resolve('src/renderer/src')
       }
     },
+    build: {
+      rollupOptions: {
+        // The overlay is a second page: it draws above the web pages, which the chrome cannot.
+        input: {
+          index: resolve('src/renderer/index.html'),
+          overlay: resolve('src/renderer/overlay.html')
+        }
+      }
+    },
     plugins: [react()]
   }
 })

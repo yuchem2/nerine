@@ -1,5 +1,7 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'node:path'
+import { registerLayoutIpc, watchLayout } from './layout'
+import { attachOverlay, registerOverlayIpc } from './overlay'
 import { attachTabs, registerTabsIpc } from './tabs'
 
 const isDev = !app.isPackaged
@@ -40,6 +42,8 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
+  watchLayout(mainWindow)
+  attachOverlay(mainWindow)
   attachTabs(mainWindow)
 
   if (isDev && process.env['ELECTRON_RENDERER_URL']) {
@@ -50,6 +54,8 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  registerLayoutIpc()
+  registerOverlayIpc()
   registerTabsIpc()
   createWindow()
 

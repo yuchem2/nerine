@@ -15,6 +15,14 @@ export interface BrowserState {
   activeId: number
 }
 
+export interface OverlayRequest {
+  title: string
+  message: string
+  detail?: string
+  confirmLabel: string
+  cancelLabel: string
+}
+
 // Never expose ipcRenderer itself. Each channel gets a wrapper.
 const api = {
   tabs: {
@@ -40,6 +48,17 @@ const api = {
   chrome: {
     // The page views sit below the chrome, so the main process needs its height.
     reportHeight: (height: number): void => ipcRenderer.send('chrome:height', height)
+  },
+  // Used by the overlay page only. The chrome never draws over a web page.
+  overlay: {
+    onShow: (listener: (request: OverlayRequest) => void): (() => void) => {
+      const handler = (_event: IpcRendererEvent, request: OverlayRequest): void => listener(request)
+      ipcRenderer.on('overlay:show', handler)
+      return () => {
+        ipcRenderer.removeListener('overlay:show', handler)
+      }
+    },
+    respond: (confirmed: boolean): void => ipcRenderer.send('overlay:respond', confirmed)
   }
 } as const
 

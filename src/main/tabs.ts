@@ -1,11 +1,13 @@
-import { dialog, ipcMain, shell, WebContentsView, type BrowserWindow, type WebContents } from 'electron'
+import { ipcMain, shell, WebContentsView, type BrowserWindow, type WebContents } from 'electron'
+import { onLayoutChange, pageBounds } from './layout'
+import { confirm } from './overlay'
 import { trackPage } from './perf'
 import type { BrowserState, TabState } from '../preload'
 
 const HOME_URL = 'https://google.com'
 const NEW_TAB_URL = 'about:blank'
-// The renderer measures its chrome and reports the real height. This covers the first frames.
-const FALLBACK_CHROME_HEIGHT = 79
+// The scheme is the only part of the prompt a link supplies, so it cannot run long.
+const MAX_SCHEME_LABEL = 32
 
 interface Tab {
   id: number
@@ -19,7 +21,6 @@ interface Tabs {
   close: (id: number) => void
   select: (id: number) => void
   activeContents: () => WebContents | null
-  setChromeHeight: (height: number) => void
 }
 
 let tabs: Tabs | null = null
@@ -28,8 +29,6 @@ let tabs: Tabs | null = null
 export function attachTabs(window: BrowserWindow): void {
   const open: Tab[] = []
   let activeId = -1
-  let chromeHeight = FALLBACK_CHROME_HEIGHT
-
   let asking = false
 
   /**
@@ -48,18 +47,19 @@ export function attachTabs(window: BrowserWindow): void {
     if (asking) return
     asking = true
     try {
-      const { response } = await dialog.showMessageBox(window, {
-        type: 'question',
+      const scheme = protocol.replace(':', '')
+      const confirmed = await confirm({
         title: 'Open in another application',
-        message: `Let another application handle this ${protocol.replace(':', '')} link?`,
+        message:
+          scheme.length <= MAX_SCHEME_LABEL
+            ? `Let another application handle this ${scheme} link?`
+            : 'Let another application handle this link?',
+        // Truncated, so a long URL cannot push what matters out of view.
         detail: url.length > 200 ? `${url.slice(0, 200)}...` : url,
-        buttons: ['Open', 'Cancel'],
-        // Cancel is the default, so a stray keypress cannot open anything.
-        defaultId: 1,
-        cancelId: 1,
-        noLink: true
+        confirmLabel: 'Open',
+        cancelLabel: 'Cancel'
       })
-      if (response === 0) await shell.openExternal(url)
+      if (confirmed) await shell.openExternal(url)
     } finally {
       asking = false
     }
@@ -70,10 +70,8 @@ export function attachTabs(window: BrowserWindow): void {
 
   // Hidden tabs are laid out too, so switching never shows a stale size.
   const layout = (): void => {
-    const { width, height } = window.getContentBounds()
-    for (const tab of open) {
-      tab.view.setBounds({ x: 0, y: chromeHeight, width, height: Math.max(height - chromeHeight, 0) })
-    }
+    const bounds = pageBounds(window)
+    for (const tab of open) tab.view.setBounds(bounds)
   }
 
   const toState = (tab: Tab): TabState => {
@@ -177,7 +175,7 @@ export function attachTabs(window: BrowserWindow): void {
     })
   }
 
-  window.on('resize', layout)
+  onLayoutChange(layout)
   window.on('closed', () => {
     tabs = null
   })
@@ -187,11 +185,7 @@ export function attachTabs(window: BrowserWindow): void {
     create,
     close,
     select,
-    activeContents: () => active()?.view.webContents ?? null,
-    setChromeHeight: (height) => {
-      chromeHeight = Math.round(height)
-      layout()
-    }
+    activeContents: () => active()?.view.webContents ?? null
   }
 
   create(HOME_URL, true)
@@ -203,7 +197,6 @@ export function registerTabsIpc(): void {
   ipcMain.on('tabs:create', () => tabs?.create(NEW_TAB_URL, true))
   ipcMain.on('tabs:close', (_event, id: number) => tabs?.close(id))
   ipcMain.on('tabs:activate', (_event, id: number) => tabs?.select(id))
-  ipcMain.on('chrome:height', (_event, height: number) => tabs?.setChromeHeight(height))
 
   ipcMain.on('page:navigate', (_event, url: string) => {
     void tabs?.activeContents()?.loadURL(url).catch(() => undefined)
