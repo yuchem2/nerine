@@ -1,8 +1,6 @@
 import { app, type WebContents } from 'electron'
 
 const ENABLED = process.env['NERINE_PERF'] === '1'
-// Guest pages report as webview, views added to a window report as browserView.
-const PAGE_TYPES = new Set(['webview', 'browserView'])
 // Let the page settle before timing the next one.
 const SETTLE_MS = 200
 
@@ -13,16 +11,13 @@ let firstLoadDone = false
  * Times page loads and, given a URL list, walks through it and quits.
  * Off unless NERINE_PERF is set, so a normal run pays nothing.
  */
-export function startPerfTracking(): void {
+export function trackPage(contents: WebContents): void {
   if (!ENABLED) return
 
-  const urls = (process.env['NERINE_PERF_URLS'] ?? '').split(',').filter(Boolean)
+  time(contents)
 
-  app.on('web-contents-created', (_event, contents) => {
-    if (!PAGE_TYPES.has(contents.getType())) return
-    time(contents)
-    if (urls.length > 0) walk(contents, urls)
-  })
+  const urls = (process.env['NERINE_PERF_URLS'] ?? '').split(',').filter(Boolean)
+  if (urls.length > 0) walk(contents, urls)
 }
 
 function emit(metric: string, url: string, ms: number): void {

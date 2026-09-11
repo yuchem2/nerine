@@ -1,23 +1,34 @@
 import { useEffect, useRef, type JSX } from 'react'
-import type { WebviewTag } from 'electron'
 import TabBar from '@renderer/components/TabBar'
 import Toolbar from '@renderer/components/Toolbar'
-import { useWebviewNavigation } from '@renderer/hooks/useWebviewNavigation'
-import { HOME_URL } from '@renderer/lib/url'
+import { usePageNavigation } from '@renderer/hooks/usePageNavigation'
 import styles from '@renderer/App.module.css'
 
 export default function App(): JSX.Element {
-  const webviewRef = useRef<WebviewTag>(null)
+  const chromeRef = useRef<HTMLDivElement>(null)
   const { url, title, faviconUrl, isLoading, canGoBack, canGoForward, ...actions } =
-    useWebviewNavigation(webviewRef)
+    usePageNavigation()
 
   // The tab strip carries the page title, so this only feeds the taskbar and alt-tab.
   useEffect(() => {
     document.title = title ? `${title} - Nerine` : 'Nerine'
   }, [title])
 
+  // The page is a native view, so the main process needs to know how tall the chrome is.
+  useEffect(() => {
+    const chrome = chromeRef.current
+    if (!chrome) return
+
+    const report = (): void => window.nerine.chrome.reportHeight(chrome.getBoundingClientRect().height)
+    const observer = new ResizeObserver(report)
+    observer.observe(chrome)
+    report()
+
+    return () => observer.disconnect()
+  }, [])
+
   return (
-    <div className={styles.app}>
+    <div ref={chromeRef} className={styles.chrome}>
       <TabBar title={title} faviconUrl={faviconUrl} />
       <Toolbar
         url={url}
@@ -30,8 +41,6 @@ export default function App(): JSX.Element {
         onStop={actions.stop}
         onNavigate={actions.navigate}
       />
-      {/* src stays fixed: navigation goes through loadURL so React never fights the guest. */}
-      <webview ref={webviewRef} className={styles.view} src={HOME_URL} />
     </div>
   )
 }

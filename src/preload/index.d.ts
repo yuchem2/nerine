@@ -1,8 +1,12 @@
-import type { NerineApi } from './index'
+import type { NerineApi, PageState } from './index'
 
 declare global {
   interface Window {
     nerine: NerineApi
+  }
+
+  namespace Nerine {
+    type State = PageState
   }
 }
 

@@ -1,13 +1,4 @@
-.app {
+.chrome {
   display: flex;
   flex-direction: column;
-  height: 100%;
-}
-
-.view {
-  display: flex;
-  flex: 1;
-  width: 100%;
-  min-height: 0;
-  border: 0;
 }

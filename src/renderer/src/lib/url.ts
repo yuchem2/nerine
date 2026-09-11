@@ -1,4 +1,3 @@
-export const HOME_URL = 'https://google.com'
 // %s is the query slot.
 const SEARCH_TEMPLATE = 'https://google.com/search?q=%s'
 

@@ -1,6 +1,6 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'node:path'
-import { startPerfTracking } from './perf'
+import { attachPage, registerPageIpc } from './page'
 
 const isDev = !app.isPackaged
 
@@ -25,9 +25,7 @@ function createWindow(): void {
       preload: join(import.meta.dirname, '../preload/index.cjs'),
       sandbox: true,
       contextIsolation: true,
-      nodeIntegration: false,
-      // Electron leaves this off. The renderer needs it to mount <webview>.
-      webviewTag: true
+      nodeIntegration: false
     }
   })
 
@@ -42,6 +40,8 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
+  attachPage(mainWindow)
+
   if (isDev && process.env['ELECTRON_RENDERER_URL']) {
     void mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
@@ -50,7 +50,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
-  startPerfTracking()
+  registerPageIpc()
   createWindow()
 
   app.on('activate', () => {
