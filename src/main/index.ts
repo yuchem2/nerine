@@ -1,5 +1,6 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'node:path'
+import { startPerfTracking } from './perf'
 
 const isDev = !app.isPackaged
 
@@ -49,6 +50,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  startPerfTracking()
   createWindow()
 
   app.on('activate', () => {

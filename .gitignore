@@ -7,6 +7,9 @@ dist/
 release/
 *.tsbuildinfo
 
+# Measurement output. Machine and network specific, so it stays local
+perf/history.jsonl
+
 # Logs
 *.log
 npm-debug.log*

@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "electron-vite dev",
     "start": "electron-vite preview",
+    "perf": "npm run build && node scripts/perf.mjs",
     "build": "npm run typecheck && electron-vite build",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
