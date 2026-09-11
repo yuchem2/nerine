@@ -1,6 +1,6 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'node:path'
-import { attachPage, registerPageIpc } from './page'
+import { attachTabs, registerTabsIpc } from './tabs'
 
 const isDev = !app.isPackaged
 
@@ -40,7 +40,7 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
-  attachPage(mainWindow)
+  attachTabs(mainWindow)
 
   if (isDev && process.env['ELECTRON_RENDERER_URL']) {
     void mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
@@ -50,7 +50,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
-  registerPageIpc()
+  registerTabsIpc()
   createWindow()
 
   app.on('activate', () => {

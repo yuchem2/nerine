@@ -7,6 +7,7 @@
   display: flex;
   flex: none;
   align-items: stretch;
+  gap: var(--space-2);
   width: env(titlebar-area-width, 100%);
   height: env(titlebar-area-height, var(--tabbar-height));
   padding: var(--space-3) var(--space-3) 0 max(env(titlebar-area-x, 0px), var(--tab-inset));
@@ -17,21 +18,39 @@
 .tab {
   position: relative;
   display: flex;
+  flex: 1 1 0;
   align-items: center;
   gap: var(--space-3);
-  width: 240px;
-  min-width: 0;
+  min-width: 72px;
+  max-width: 240px;
+  /* Inactive tabs float clear of the toolbar, so their hover reads as a pill. */
+  margin-bottom: var(--space-2);
   padding: 0 var(--space-4);
+  border-radius: var(--radius-lg);
+  cursor: default;
+  -webkit-app-region: no-drag;
+}
+
+.tab:hover {
   background: var(--bg-chrome);
+}
+
+.active,
+.active:hover {
+  /* The active tab reaches the toolbar instead, and the padding keeps the row aligned. */
+  margin-bottom: 0;
+  padding-bottom: var(--space-2);
   border-radius: var(--tab-fillet) var(--tab-fillet) 0 0;
+  background: var(--bg-chrome);
 }
 
 /*
  * Concave corners that carry the tab into the toolbar instead of ending at it.
- * Each is a square of toolbar color with a quarter disc masked out.
+ * Each is a square of toolbar color with a quarter disc masked out. Only the
+ * active tab gets them, since only it is continuous with the toolbar below.
  */
-.tab::before,
-.tab::after {
+.active::before,
+.active::after {
   content: '';
   position: absolute;
   bottom: 0;
@@ -40,26 +59,89 @@
   background: var(--bg-chrome);
 }
 
-.tab::before {
+.active::before {
   left: calc(var(--tab-fillet) * -1);
   mask: radial-gradient(circle var(--tab-fillet) at top left, transparent 99%, #000 100%);
 }
 
-.tab::after {
+.active::after {
   right: calc(var(--tab-fillet) * -1);
   mask: radial-gradient(circle var(--tab-fillet) at top right, transparent 99%, #000 100%);
 }
 
-.favicon {
+.icon {
+  display: flex;
   flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: var(--fg-muted);
+}
+
+.favicon {
   width: 16px;
   height: 16px;
 }
 
 .title {
+  flex: 1;
   overflow: hidden;
-  color: var(--fg-secondary);
+  color: var(--fg-muted);
   font-size: var(--text-sm);
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.active .title {
+  color: var(--fg-primary);
+}
+
+.close {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  /* Reserved even when hidden, so hovering does not reflow the title. */
+  visibility: hidden;
+  color: var(--fg-muted);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.tab:hover .close,
+.active .close {
+  visibility: visible;
+}
+
+.close:hover {
+  color: var(--fg-primary);
+  background: var(--bg-hover);
+}
+
+.newTab {
+  display: flex;
+  flex: none;
+  align-self: center;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  color: var(--fg-muted);
+  background: none;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+
+.newTab:hover {
+  color: var(--fg-primary);
+  background: var(--bg-hover);
 }

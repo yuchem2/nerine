@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 
-export interface PageState {
+export interface TabState {
+  id: number
   url: string
   title: string
   faviconUrl: string | null
@@ -9,25 +10,35 @@ export interface PageState {
   canGoForward: boolean
 }
 
+export interface BrowserState {
+  tabs: TabState[]
+  activeId: number
+}
+
 // Never expose ipcRenderer itself. Each channel gets a wrapper.
 const api = {
+  tabs: {
+    read: (): Promise<BrowserState | null> => ipcRenderer.invoke('tabs:read'),
+    create: (): void => ipcRenderer.send('tabs:create'),
+    close: (id: number): void => ipcRenderer.send('tabs:close', id),
+    activate: (id: number): void => ipcRenderer.send('tabs:activate', id),
+    onState: (listener: (state: BrowserState) => void): (() => void) => {
+      const handler = (_event: IpcRendererEvent, state: BrowserState): void => listener(state)
+      ipcRenderer.on('tabs:state', handler)
+      return () => {
+        ipcRenderer.removeListener('tabs:state', handler)
+      }
+    }
+  },
   page: {
-    read: (): Promise<PageState | null> => ipcRenderer.invoke('page:read-state'),
     navigate: (url: string): void => ipcRenderer.send('page:navigate', url),
     goBack: (): void => ipcRenderer.send('page:go-back'),
     goForward: (): void => ipcRenderer.send('page:go-forward'),
     reload: (): void => ipcRenderer.send('page:reload'),
-    stop: (): void => ipcRenderer.send('page:stop'),
-    onState: (listener: (state: PageState) => void): (() => void) => {
-      const handler = (_event: IpcRendererEvent, state: PageState): void => listener(state)
-      ipcRenderer.on('page:state', handler)
-      return () => {
-        ipcRenderer.removeListener('page:state', handler)
-      }
-    }
+    stop: (): void => ipcRenderer.send('page:stop')
   },
   chrome: {
-    // The page view sits below the chrome, so the main process needs its height.
+    // The page views sit below the chrome, so the main process needs its height.
     reportHeight: (height: number): void => ipcRenderer.send('chrome:height', height)
   }
 } as const

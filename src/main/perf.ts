@@ -6,6 +6,7 @@ const SETTLE_MS = 200
 
 const startedAt = new Map<number, number>()
 let firstLoadDone = false
+let walking = false
 
 /**
  * Times page loads and, given a URL list, walks through it and quits.
@@ -17,7 +18,9 @@ export function trackPage(contents: WebContents): void {
   time(contents)
 
   const urls = (process.env['NERINE_PERF_URLS'] ?? '').split(',').filter(Boolean)
-  if (urls.length > 0) walk(contents, urls)
+  if (urls.length === 0 || walking) return
+  walking = true
+  walk(contents, urls)
 }
 
 function emit(metric: string, url: string, ms: number): void {

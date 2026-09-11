@@ -1,25 +1,27 @@
 import { useEffect, useRef, type JSX } from 'react'
 import TabBar from '@renderer/components/TabBar'
 import Toolbar from '@renderer/components/Toolbar'
-import { usePageNavigation } from '@renderer/hooks/usePageNavigation'
+import { useTabs } from '@renderer/hooks/useTabs'
 import styles from '@renderer/App.module.css'
 
 export default function App(): JSX.Element {
   const chromeRef = useRef<HTMLDivElement>(null)
-  const { url, title, faviconUrl, isLoading, canGoBack, canGoForward, ...actions } =
-    usePageNavigation()
+  const browser = useTabs()
+  const { active } = browser
 
   // The tab strip carries the page title, so this only feeds the taskbar and alt-tab.
   useEffect(() => {
+    const title = active?.title
     document.title = title ? `${title} - Nerine` : 'Nerine'
-  }, [title])
+  }, [active?.title])
 
-  // The page is a native view, so the main process needs to know how tall the chrome is.
+  // The pages are native views, so the main process needs to know how tall the chrome is.
   useEffect(() => {
     const chrome = chromeRef.current
     if (!chrome) return
 
-    const report = (): void => window.nerine.chrome.reportHeight(chrome.getBoundingClientRect().height)
+    const report = (): void =>
+      window.nerine.chrome.reportHeight(chrome.getBoundingClientRect().height)
     const observer = new ResizeObserver(report)
     observer.observe(chrome)
     report()
@@ -29,17 +31,23 @@ export default function App(): JSX.Element {
 
   return (
     <div ref={chromeRef} className={styles.chrome}>
-      <TabBar title={title} faviconUrl={faviconUrl} />
+      <TabBar
+        tabs={browser.tabs}
+        activeId={browser.activeId}
+        onSelect={browser.selectTab}
+        onClose={browser.closeTab}
+        onCreate={browser.createTab}
+      />
       <Toolbar
-        url={url}
-        isLoading={isLoading}
-        canGoBack={canGoBack}
-        canGoForward={canGoForward}
-        onBack={actions.goBack}
-        onForward={actions.goForward}
-        onReload={actions.reload}
-        onStop={actions.stop}
-        onNavigate={actions.navigate}
+        url={active?.url ?? ''}
+        isLoading={active?.isLoading ?? false}
+        canGoBack={active?.canGoBack ?? false}
+        canGoForward={active?.canGoForward ?? false}
+        onBack={browser.goBack}
+        onForward={browser.goForward}
+        onReload={browser.reload}
+        onStop={browser.stop}
+        onNavigate={browser.navigate}
       />
     </div>
   )

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type JSX, type MouseEvent, type SubmitEvent } from 'react'
-import { ArrowLeftIcon, ArrowRightIcon, ReloadIcon, StopIcon } from '@renderer/components/Icons'
+import { ArrowLeftIcon, ArrowRightIcon, CrossIcon, ReloadIcon } from '@renderer/components/Icons'
 import { toDisplayUrl } from '@renderer/lib/url'
 import styles from '@renderer/components/Toolbar.module.css'
 
@@ -84,7 +84,7 @@ export default function Toolbar({
           title={isLoading ? 'Stop' : 'Reload'}
           aria-label={isLoading ? 'Stop' : 'Reload'}
         >
-          {isLoading ? <StopIcon /> : <ReloadIcon />}
+          {isLoading ? <CrossIcon /> : <ReloadIcon />}
         </button>
       </nav>
 
