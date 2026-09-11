@@ -1,4 +1,4 @@
-import { ipcMain, shell, WebContentsView, type BrowserWindow, type WebContents } from 'electron'
+import { dialog, ipcMain, shell, WebContentsView, type BrowserWindow, type WebContents } from 'electron'
 import { trackPage } from './perf'
 import type { BrowserState, TabState } from '../preload'
 
@@ -29,6 +29,41 @@ export function attachTabs(window: BrowserWindow): void {
   const open: Tab[] = []
   let activeId = -1
   let chromeHeight = FALLBACK_CHROME_HEIGHT
+
+  let asking = false
+
+  /**
+   * The page picked this scheme, not the user, so anything unfamiliar is confirmed
+   * first. file: never goes out: a page could point it at any path on the machine.
+   */
+  const handOff = async (url: string): Promise<void> => {
+    const protocol = protocolOf(url)
+    if (protocol === '' || protocol === 'file:') return
+
+    if (QUIET_SCHEMES.has(protocol)) {
+      await shell.openExternal(url)
+      return
+    }
+    // One prompt at a time, so a page cannot stack them.
+    if (asking) return
+    asking = true
+    try {
+      const { response } = await dialog.showMessageBox(window, {
+        type: 'question',
+        title: 'Open in another application',
+        message: `Let another application handle this ${protocol.replace(':', '')} link?`,
+        detail: url.length > 200 ? `${url.slice(0, 200)}...` : url,
+        buttons: ['Open', 'Cancel'],
+        // Cancel is the default, so a stray keypress cannot open anything.
+        defaultId: 1,
+        cancelId: 1,
+        noLink: true
+      })
+      if (response === 0) await shell.openExternal(url)
+    } finally {
+      asking = false
+    }
+  }
 
   const find = (id: number): Tab | undefined => open.find((tab) => tab.id === id)
   const active = (): Tab | undefined => find(activeId)
@@ -128,9 +163,17 @@ export function attachTabs(window: BrowserWindow): void {
       publish()
     })
 
-    contents.setWindowOpenHandler(({ url }) => {
-      void shell.openExternal(url)
+    // A link that wants its own window becomes a tab. Only other schemes leave.
+    contents.setWindowOpenHandler(({ url, disposition }) => {
+      if (isPageUrl(url)) create(url, disposition !== 'background-tab')
+      else void handOff(url)
       return { action: 'deny' }
+    })
+
+    contents.on('will-navigate', (details) => {
+      if (isPageUrl(details.url)) return
+      details.preventDefault()
+      void handOff(details.url)
     })
   }
 
@@ -169,4 +212,21 @@ export function registerTabsIpc(): void {
   ipcMain.on('page:go-forward', () => tabs?.activeContents()?.navigationHistory.goForward())
   ipcMain.on('page:reload', () => tabs?.activeContents()?.reload())
   ipcMain.on('page:stop', () => tabs?.activeContents()?.stop())
+}
+
+// Schemes the browser renders itself. Everything else belongs to another application.
+const PAGE_SCHEMES = new Set(['http:', 'https:', 'about:'])
+// Well known enough to hand over without asking.
+const QUIET_SCHEMES = new Set(['mailto:', 'tel:', 'sms:', 'webcal:'])
+
+function isPageUrl(url: string): boolean {
+  return PAGE_SCHEMES.has(protocolOf(url))
+}
+
+function protocolOf(url: string): string {
+  try {
+    return new URL(url).protocol
+  } catch {
+    return ''
+  }
 }
