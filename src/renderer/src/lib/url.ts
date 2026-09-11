@@ -24,3 +24,32 @@ export function toNavigationUrl(input: string): string | null {
 function toSearchUrl(query: string): string {
   return SEARCH_TEMPLATE.replace('%s', encodeURIComponent(query))
 }
+
+/**
+ * Trims a URL down for display. The scheme only disappears for https, so an
+ * insecure page still says so, and the raw URL is what gets edited and copied.
+ */
+export function toDisplayUrl(url: string): string {
+  if (!url) return ''
+
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return url
+  }
+  if (parsed.protocol !== 'https:') return url
+
+  const host = parsed.host.replace(/^www\./, '')
+  const rest = decode(parsed.pathname + parsed.search + parsed.hash)
+
+  return rest === '/' ? host : host + rest
+}
+
+function decode(value: string): string {
+  try {
+    return decodeURI(value)
+  } catch {
+    return value
+  }
+}

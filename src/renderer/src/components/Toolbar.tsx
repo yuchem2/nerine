@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type JSX, type MouseEvent, type SubmitEvent } from 'react'
 import { ArrowLeftIcon, ArrowRightIcon, ReloadIcon, StopIcon } from '@renderer/components/Icons'
+import { toDisplayUrl } from '@renderer/lib/url'
 import styles from '@renderer/components/Toolbar.module.css'
 
 interface ToolbarProps {
@@ -26,13 +27,19 @@ export default function Toolbar({
   onNavigate
 }: ToolbarProps): JSX.Element {
   const inputRef = useRef<HTMLInputElement>(null)
-  const [draft, setDraft] = useState(url)
+  const display = toDisplayUrl(url)
+  const [draft, setDraft] = useState(display)
   const [isEditing, setIsEditing] = useState(false)
 
   // The bar reflects the page unless the user is typing in it.
   useEffect(() => {
-    if (!isEditing) setDraft(url)
-  }, [url, isEditing])
+    if (!isEditing) setDraft(display)
+  }, [display, isEditing])
+
+  // Selecting has to wait for the raw URL to reach the DOM.
+  useEffect(() => {
+    if (isEditing) inputRef.current?.select()
+  }, [isEditing])
 
   const handleSubmit = (event: SubmitEvent<HTMLFormElement>): void => {
     event.preventDefault()
@@ -93,15 +100,14 @@ export default function Toolbar({
           aria-label="Address"
           onChange={(event) => setDraft(event.target.value)}
           onMouseDown={handleMouseDown}
-          onFocus={(event) => {
+          onFocus={() => {
             setIsEditing(true)
-            event.currentTarget.select()
+            setDraft(url)
           }}
           onBlur={() => setIsEditing(false)}
           onKeyDown={(event) => {
-            if (event.key !== 'Escape') return
-            setDraft(url)
-            event.currentTarget.blur()
+            // Blur puts the page URL back, so Escape only has to leave the field.
+            if (event.key === 'Escape') event.currentTarget.blur()
           }}
         />
       </form>
