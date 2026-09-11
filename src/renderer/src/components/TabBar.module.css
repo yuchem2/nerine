@@ -1,0 +1,65 @@
+/* titlebar-area-* keeps the strip clear of the window controls the OS draws. */
+.bar {
+  --tab-fillet: var(--radius-lg);
+  /* The fillet has to land past the toolbar's rounded shoulder, not on it. */
+  --tab-inset: calc(var(--tab-fillet) + var(--radius-lg));
+
+  display: flex;
+  flex: none;
+  align-items: stretch;
+  width: env(titlebar-area-width, 100%);
+  height: env(titlebar-area-height, var(--tabbar-height));
+  padding: var(--space-3) var(--space-3) 0 max(env(titlebar-area-x, 0px), var(--tab-inset));
+  background: var(--bg-app);
+  -webkit-app-region: drag;
+}
+
+.tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 240px;
+  min-width: 0;
+  padding: 0 var(--space-4);
+  background: var(--bg-chrome);
+  border-radius: var(--tab-fillet) var(--tab-fillet) 0 0;
+}
+
+/*
+ * Concave corners that carry the tab into the toolbar instead of ending at it.
+ * Each is a square of toolbar color with a quarter disc masked out.
+ */
+.tab::before,
+.tab::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: var(--tab-fillet);
+  height: var(--tab-fillet);
+  background: var(--bg-chrome);
+}
+
+.tab::before {
+  left: calc(var(--tab-fillet) * -1);
+  mask: radial-gradient(circle var(--tab-fillet) at top left, transparent 99%, #000 100%);
+}
+
+.tab::after {
+  right: calc(var(--tab-fillet) * -1);
+  mask: radial-gradient(circle var(--tab-fillet) at top right, transparent 99%, #000 100%);
+}
+
+.favicon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+.title {
+  overflow: hidden;
+  color: var(--fg-secondary);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

@@ -3,6 +3,13 @@ import { join } from 'node:path'
 
 const isDev = !app.isPackaged
 
+// The OS paints the window controls, so it needs concrete colors instead of CSS tokens.
+const TITLE_BAR = {
+  height: 40,
+  color: '#101014',
+  symbolColor: '#b8b8c2'
+}
+
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
     width: 1280,
@@ -10,14 +17,15 @@ function createWindow(): void {
     minWidth: 480,
     minHeight: 360,
     show: false,
-    autoHideMenuBar: true,
+    titleBarStyle: 'hidden',
+    titleBarOverlay: TITLE_BAR,
     backgroundColor: '#101014',
     webPreferences: {
       preload: join(import.meta.dirname, '../preload/index.cjs'),
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
-      // Off by default in Electron. Phase 7 turns it back off with WebContentsView.
+      // Electron leaves this off. The renderer needs it to mount <webview>.
       webviewTag: true
     }
   })
@@ -27,7 +35,7 @@ function createWindow(): void {
     mainWindow.show()
   })
 
-  // Phase 2.3 decides whether these become tabs instead.
+  // Nothing in the chrome opens a second window, so hand these to the system browser.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     void shell.openExternal(url)
     return { action: 'deny' }
