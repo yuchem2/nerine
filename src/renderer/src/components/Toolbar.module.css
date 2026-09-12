@@ -16,50 +16,42 @@
   gap: var(--space-1);
 }
 
-.button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  color: var(--fg-secondary);
-  background: none;
-  border: 0;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-out);
-}
-
-.button:hover:not(:disabled) {
-  background: var(--bg-hover);
-  color: var(--fg-primary);
-}
-
-.button:active:not(:disabled) {
-  background: var(--bg-active);
-}
-
-.button:disabled {
-  color: var(--fg-muted);
-  opacity: 0.4;
-  cursor: default;
-}
-
 .addressForm {
   display: flex;
   flex: 1;
   min-width: 0;
 }
 
-.address {
-  width: 100%;
+/* The field carries the frame so the zoom button can sit inside it. */
+.field {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
   height: 26px;
-  padding: 0 var(--space-4);
-  color: var(--fg-primary);
+  padding: 0 var(--space-2) 0 var(--space-4);
   background: var(--bg-surface);
   border: 1px solid transparent;
   border-radius: var(--radius-lg);
+}
+
+.field:hover {
+  border-color: var(--border-subtle);
+}
+
+.field:focus-within {
+  border-color: var(--accent);
+}
+
+.address {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  color: var(--fg-primary);
+  background: none;
+  border: 0;
   outline: none;
   text-overflow: ellipsis;
 }
@@ -68,12 +60,7 @@
   color: var(--fg-muted);
 }
 
-.address:hover {
-  border-color: var(--border-subtle);
-}
-
 .address:focus {
-  border-color: var(--accent);
   text-overflow: clip;
 }
 

@@ -6,7 +6,7 @@ interface MenuProps {
   onPick: (id: string | null) => void
 }
 
-// Keeps a flipped menu off the very edge of the window.
+// Keeps the menu off the very edge of the window.
 const EDGE = 4
 
 export default function Menu({ request, onPick }: MenuProps): JSX.Element {
@@ -22,12 +22,13 @@ export default function Menu({ request, onPick }: MenuProps): JSX.Element {
     if (!menu) return
 
     const { width, height } = menu.getBoundingClientRect()
+    const view = request.viewport
     setSpot({
-      left: request.x + width > window.innerWidth ? Math.max(request.x - width, EDGE) : request.x,
-      top: request.y + height > window.innerHeight ? Math.max(request.y - height, EDGE) : request.y
+      left: place(request.x, width, view.width),
+      top: place(request.y, height, view.height)
     })
     setCursor(-1)
-    menu.focus()
+    menu.focus({ preventScroll: true })
   }, [request])
 
   const move = (delta: number): void => {
@@ -88,6 +89,12 @@ export default function Menu({ request, onPick }: MenuProps): JSX.Element {
       </div>
     </div>
   )
+}
+
+/** Flips the menu when it would run past the edge, and never lets it leave the window. */
+function place(at: number, size: number, limit: number): number {
+  const flipped = at + size > limit ? at - size : at
+  return Math.max(Math.min(flipped, limit - size - EDGE), EDGE)
 }
 
 function isItem(entry: Nerine.MenuEntry): entry is Nerine.MenuItem {

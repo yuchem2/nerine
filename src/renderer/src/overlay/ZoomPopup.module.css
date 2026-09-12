@@ -1,0 +1,30 @@
+/* The view is cut to this card, so a shadow would be clipped at its edge. */
+.popup {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  height: 100%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.percent {
+  min-width: 44px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.reset {
+  padding: var(--space-1) var(--space-3);
+  color: var(--accent);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.reset:hover {
+  background: var(--bg-hover);
+}

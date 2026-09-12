@@ -1,11 +1,11 @@
 import { ipcMain, shell, WebContentsView, type BrowserWindow, type WebContents } from 'electron'
 import { runCommand, showContextMenu, type Command, type CommandContext } from './commands'
 import { onLayoutChange, pageBounds } from './layout'
-import { confirm } from './overlay'
+import { confirm, hideZoom, holdZoom, isZoomShowing, showZoom } from './overlay'
 import { trackPage } from './perf'
 import { attachShortcuts } from './shortcuts'
 import { DEFAULT_ZOOM, nextZoom } from './zoom'
-import type { BrowserState, TabState } from '../preload'
+import type { BrowserState, TabState, ZoomAction, ZoomState } from '../preload'
 
 const HOME_URL = 'https://google.com'
 const NEW_TAB_URL = 'about:blank'
@@ -30,6 +30,7 @@ export interface Tabs {
   cycle: (delta: number) => void
   zoom: (direction: 1 | -1) => void
   resetZoom: () => void
+  toggleZoomPopup: () => void
   activeContents: () => WebContents | null
 }
 
@@ -112,6 +113,8 @@ export function attachTabs(window: BrowserWindow): void {
     if (!tab) return
 
     for (const other of open) other.view.setVisible(other.id === id)
+    // The popup belongs to the tab it was opened for.
+    hideZoom()
     activeId = id
     layout()
     tab.view.webContents.focus()
@@ -129,10 +132,20 @@ export function attachTabs(window: BrowserWindow): void {
     select(open[(index + delta + open.length) % open.length].id)
   }
 
+  const zoomState = (tab: Tab): ZoomState => {
+    const factor = tab.view.webContents.getZoomFactor()
+    return {
+      percent: Math.round(factor * 100),
+      canZoomIn: nextZoom(factor, 1) !== null,
+      canZoomOut: nextZoom(factor, -1) !== null
+    }
+  }
+
   const zoomTab = (tab: Tab, direction: 1 | -1): void => {
     const factor = nextZoom(tab.view.webContents.getZoomFactor(), direction)
     if (factor !== null) tab.view.webContents.setZoomFactor(factor)
     publish()
+    if (tab.id === activeId) void showZoom(zoomState(tab))
   }
 
   const create = (url: string, activate: boolean): void => {
@@ -233,6 +246,14 @@ export function attachTabs(window: BrowserWindow): void {
       if (!tab) return
       tab.view.webContents.setZoomFactor(DEFAULT_ZOOM)
       publish()
+      // Back to normal is its own feedback: the button in the address bar goes away.
+      hideZoom()
+    },
+    toggleZoomPopup: () => {
+      const tab = active()
+      if (!tab) return
+      if (isZoomShowing()) hideZoom()
+      else void showZoom(zoomState(tab))
     },
     activeContents: () => active()?.view.webContents ?? null
   }
@@ -270,6 +291,15 @@ export function registerTabsIpc(): void {
   ipcMain.on('page:reload', () => dispatch({ name: 'page:reload' }))
   ipcMain.on('page:stop', () => dispatch({ name: 'page:stop' }))
   ipcMain.on('page:focus', () => context?.tabs.activeContents()?.focus())
+  ipcMain.on('chrome:zoom-popup', () => context?.tabs.toggleZoomPopup())
+  ipcMain.on('overlay:zoom-action', (_event, action: ZoomAction) => {
+    if (action === 'hold' || action === 'release') {
+      holdZoom(action === 'hold')
+      return
+    }
+    if (action === 'reset') dispatch({ name: 'zoom:reset' })
+    else dispatch({ name: action === 'in' ? 'zoom:in' : 'zoom:out' })
+  })
 }
 
 // Schemes the browser renders itself. Everything else belongs to another application.

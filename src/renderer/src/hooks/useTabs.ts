@@ -13,6 +13,7 @@ export interface Browser {
   reload: () => void
   stop: () => void
   focusPage: () => void
+  toggleZoomPopup: () => void
   navigate: (input: string) => void
 }
 
@@ -47,6 +48,7 @@ export function useTabs(): Browser {
     reload: window.nerine.page.reload,
     stop: window.nerine.page.stop,
     focusPage: window.nerine.page.focus,
+    toggleZoomPopup: window.nerine.chrome.toggleZoomPopup,
     navigate
   }
 }

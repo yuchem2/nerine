@@ -11,7 +11,7 @@ export default function Dialog({ request, onAnswer }: DialogProps): JSX.Element 
 
   // Cancel holds focus: the page chose this action, not the person answering for it.
   useEffect(() => {
-    cancelRef.current?.focus()
+    cancelRef.current?.focus({ preventScroll: true })
   }, [])
 
   return (

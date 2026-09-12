@@ -5,7 +5,8 @@ import type {
   OverlayMenuItem,
   OverlayMenuRequest,
   OverlayRequest as Request,
-  TabState
+  TabState,
+  ZoomState as Zoom
 } from './index'
 
 declare global {
@@ -20,6 +21,7 @@ declare global {
     type OverlayMenu = OverlayMenuRequest
     type MenuEntry = OverlayMenuEntry
     type MenuItem = OverlayMenuItem
+    type ZoomState = Zoom
   }
 }
 

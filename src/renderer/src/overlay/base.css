@@ -8,6 +8,9 @@ html,
 body,
 #root {
   height: 100%;
+  /* Nothing here scrolls. A focus call inside a layer smaller than its content would
+     scroll the layer itself and leave everything drawn at the wrong offset. */
+  overflow: hidden;
 }
 
 /* The page shows through, so this layer paints nothing of its own. */

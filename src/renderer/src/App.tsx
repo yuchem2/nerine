@@ -53,6 +53,7 @@ export default function App(): JSX.Element {
         isLoading={active?.isLoading ?? false}
         canGoBack={active?.canGoBack ?? false}
         canGoForward={active?.canGoForward ?? false}
+        zoomFactor={active?.zoomFactor ?? 1}
         inputRef={addressRef}
         onBack={browser.goBack}
         onForward={browser.goForward}
@@ -60,6 +61,7 @@ export default function App(): JSX.Element {
         onStop={browser.stop}
         onNavigate={browser.navigate}
         onFocusPage={browser.focusPage}
+        onToggleZoom={browser.toggleZoomPopup}
       />
     </div>
   )

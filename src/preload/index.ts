@@ -24,6 +24,15 @@ export interface OverlayRequest {
   cancelLabel: string
 }
 
+export interface ZoomState {
+  percent: number
+  canZoomIn: boolean
+  canZoomOut: boolean
+}
+
+/** hold and release keep the popup open while the pointer is on it. */
+export type ZoomAction = 'in' | 'out' | 'reset' | 'hold' | 'release'
+
 export interface OverlayMenuItem {
   id: string
   label: string
@@ -37,6 +46,8 @@ export interface OverlayMenuRequest {
   x: number
   y: number
   entries: OverlayMenuEntry[]
+  /** Filled in by the main process: the renderer learns its own size a frame late. */
+  viewport: { width: number; height: number }
 }
 
 // Never expose ipcRenderer itself. Each channel gets a wrapper.
@@ -65,6 +76,9 @@ const api = {
   chrome: {
     // The page views sit below the chrome, so the main process needs its height.
     reportHeight: (height: number): void => ipcRenderer.send('chrome:height', height),
+    reportZoomAnchor: (anchor: { x: number; y: number }): void =>
+      ipcRenderer.send('chrome:zoom-anchor', anchor),
+    toggleZoomPopup: (): void => ipcRenderer.send('chrome:zoom-popup'),
     onFocusAddress: (listener: () => void): (() => void) => {
       const handler = (): void => listener()
       ipcRenderer.on('chrome:focus-address', handler)
@@ -91,7 +105,15 @@ const api = {
         ipcRenderer.removeListener('overlay:menu', handler)
       }
     },
-    pick: (id: string | null): void => ipcRenderer.send('overlay:pick', id)
+    pick: (id: string | null): void => ipcRenderer.send('overlay:pick', id),
+    onZoom: (listener: (state: ZoomState | null) => void): (() => void) => {
+      const handler = (_event: IpcRendererEvent, state: ZoomState | null): void => listener(state)
+      ipcRenderer.on('overlay:zoom', handler)
+      return () => {
+        ipcRenderer.removeListener('overlay:zoom', handler)
+      }
+    },
+    zoomAction: (action: ZoomAction): void => ipcRenderer.send('overlay:zoom-action', action)
   }
 } as const
 

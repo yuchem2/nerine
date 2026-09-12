@@ -55,6 +55,33 @@ export function PlusIcon({ size = 16 }: IconProps = {}): JSX.Element {
   )
 }
 
+export function MinusIcon({ size = 16 }: IconProps = {}): JSX.Element {
+  return (
+    <svg {...shape} width={size} height={size}>
+      <path d="M3.5 8h9" />
+    </svg>
+  )
+}
+
+interface ZoomIconProps extends IconProps {
+  direction: 'in' | 'out'
+}
+
+/**
+ * One element for both directions: swapping in a second icon component unmounts the
+ * glass and the button blinks on the way between - and +.
+ */
+export function ZoomIcon({ size = 16, direction }: ZoomIconProps): JSX.Element {
+  return (
+    <svg {...shape} width={size} height={size}>
+      <circle cx="7" cy="7" r="4.5" />
+      <path d="M10.5 10.5 14 14" />
+      <path d="M5 7h4" />
+      {direction === 'in' && <path d="M7 5v4" />}
+    </svg>
+  )
+}
+
 export function PageIcon({ size = 16 }: IconProps = {}): JSX.Element {
   return (
     <svg {...shape} width={size} height={size}>
