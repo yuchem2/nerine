@@ -1,8 +1,10 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'node:path'
+import { installAppMenu } from './appmenu'
 import { registerLayoutIpc, watchLayout } from './layout'
 import { attachOverlay, registerOverlayIpc } from './overlay'
-import { attachTabs, registerTabsIpc } from './tabs'
+import { attachShortcuts } from './shortcuts'
+import { attachTabs, dispatch, registerTabsIpc } from './tabs'
 
 const isDev = !app.isPackaged
 
@@ -45,6 +47,8 @@ function createWindow(): void {
   watchLayout(mainWindow)
   attachOverlay(mainWindow)
   attachTabs(mainWindow)
+  // The chrome has focus while the address bar is in use, so it needs the keys too.
+  attachShortcuts(mainWindow.webContents, dispatch)
 
   if (isDev && process.env['ELECTRON_RENDERER_URL']) {
     void mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
@@ -54,6 +58,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  installAppMenu()
   registerLayoutIpc()
   registerOverlayIpc()
   registerTabsIpc()

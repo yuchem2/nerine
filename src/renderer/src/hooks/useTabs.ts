@@ -12,6 +12,7 @@ export interface Browser {
   goForward: () => void
   reload: () => void
   stop: () => void
+  focusPage: () => void
   navigate: (input: string) => void
 }
 
@@ -45,6 +46,7 @@ export function useTabs(): Browser {
     goForward: window.nerine.page.goForward,
     reload: window.nerine.page.reload,
     stop: window.nerine.page.stop,
+    focusPage: window.nerine.page.focus,
     navigate
   }
 }

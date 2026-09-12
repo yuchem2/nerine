@@ -1,7 +1,9 @@
 import { ipcMain, shell, WebContentsView, type BrowserWindow, type WebContents } from 'electron'
+import { runCommand, type Command, type CommandContext } from './commands'
 import { onLayoutChange, pageBounds } from './layout'
 import { confirm } from './overlay'
 import { trackPage } from './perf'
+import { attachShortcuts } from './shortcuts'
 import type { BrowserState, TabState } from '../preload'
 
 const HOME_URL = 'https://google.com'
@@ -15,15 +17,20 @@ interface Tab {
   faviconUrl: string | null
 }
 
-interface Tabs {
+export interface Tabs {
   read: () => BrowserState
+  newTab: () => void
   create: (url: string, activate: boolean) => void
   close: (id: number) => void
+  closeActive: () => void
   select: (id: number) => void
+  /** A negative index means the last tab. */
+  selectAt: (index: number) => void
+  cycle: (delta: number) => void
   activeContents: () => WebContents | null
 }
 
-let tabs: Tabs | null = null
+let context: CommandContext | null = null
 
 /** Owns every page in the window and keeps the renderer told about them. */
 export function attachTabs(window: BrowserWindow): void {
@@ -105,6 +112,17 @@ export function attachTabs(window: BrowserWindow): void {
     publish()
   }
 
+  const selectAt = (index: number): void => {
+    const tab = index < 0 ? open[open.length - 1] : open[index]
+    if (tab) select(tab.id)
+  }
+
+  const cycle = (delta: number): void => {
+    const index = open.findIndex((tab) => tab.id === activeId)
+    if (index === -1) return
+    select(open[(index + delta + open.length) % open.length].id)
+  }
+
   const create = (url: string, activate: boolean): void => {
     const view = new WebContentsView({
       webPreferences: {
@@ -161,6 +179,8 @@ export function attachTabs(window: BrowserWindow): void {
       publish()
     })
 
+    attachShortcuts(contents, dispatch)
+
     // A link that wants its own window becomes a tab. Only other schemes leave.
     contents.setWindowOpenHandler(({ url, disposition }) => {
       if (isPageUrl(url)) create(url, disposition !== 'background-tab')
@@ -175,36 +195,51 @@ export function attachTabs(window: BrowserWindow): void {
     })
   }
 
-  onLayoutChange(layout)
-  window.on('closed', () => {
-    tabs = null
-  })
-
-  tabs = {
+  const controller: Tabs = {
     read,
+    newTab: () => create(NEW_TAB_URL, true),
     create,
     close,
+    closeActive: () => close(activeId),
     select,
+    selectAt,
+    cycle,
     activeContents: () => active()?.view.webContents ?? null
   }
+  const ctx: CommandContext = { window, tabs: controller }
 
+  onLayoutChange(layout)
+  window.on('closed', () => {
+    context = null
+  })
+
+  context = ctx
   create(HOME_URL, true)
+}
+
+/** Runs a command against the window that owns the tabs. */
+export function dispatch(command: Command): void {
+  if (context) runCommand(command, context)
 }
 
 /** Registered once, so reopening a window does not stack duplicate handlers. */
 export function registerTabsIpc(): void {
-  ipcMain.handle('tabs:read', () => tabs?.read() ?? null)
-  ipcMain.on('tabs:create', () => tabs?.create(NEW_TAB_URL, true))
-  ipcMain.on('tabs:close', (_event, id: number) => tabs?.close(id))
-  ipcMain.on('tabs:activate', (_event, id: number) => tabs?.select(id))
+  ipcMain.handle('tabs:read', () => context?.tabs.read() ?? null)
+  ipcMain.on('tabs:create', () => dispatch({ name: 'tab:new' }))
+  ipcMain.on('tabs:close', (_event, id: number) => context?.tabs.close(id))
+  ipcMain.on('tabs:activate', (_event, id: number) => context?.tabs.select(id))
 
   ipcMain.on('page:navigate', (_event, url: string) => {
-    void tabs?.activeContents()?.loadURL(url).catch(() => undefined)
+    void context?.tabs
+      .activeContents()
+      ?.loadURL(url)
+      .catch(() => undefined)
   })
-  ipcMain.on('page:go-back', () => tabs?.activeContents()?.navigationHistory.goBack())
-  ipcMain.on('page:go-forward', () => tabs?.activeContents()?.navigationHistory.goForward())
-  ipcMain.on('page:reload', () => tabs?.activeContents()?.reload())
-  ipcMain.on('page:stop', () => tabs?.activeContents()?.stop())
+  ipcMain.on('page:go-back', () => dispatch({ name: 'page:back' }))
+  ipcMain.on('page:go-forward', () => dispatch({ name: 'page:forward' }))
+  ipcMain.on('page:reload', () => dispatch({ name: 'page:reload' }))
+  ipcMain.on('page:stop', () => dispatch({ name: 'page:stop' }))
+  ipcMain.on('page:focus', () => context?.tabs.activeContents()?.focus())
 }
 
 // Schemes the browser renders itself. Everything else belongs to another application.

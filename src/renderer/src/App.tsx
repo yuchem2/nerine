@@ -6,6 +6,7 @@ import styles from '@renderer/App.module.css'
 
 export default function App(): JSX.Element {
   const chromeRef = useRef<HTMLDivElement>(null)
+  const addressRef = useRef<HTMLInputElement>(null)
   const browser = useTabs()
   const { active } = browser
 
@@ -29,6 +30,15 @@ export default function App(): JSX.Element {
     return () => observer.disconnect()
   }, [])
 
+  // Keyboard shortcuts are read in the main process, wherever the focus happens to be.
+  useEffect(
+    () =>
+      window.nerine.chrome.onFocusAddress(() => {
+        addressRef.current?.focus()
+      }),
+    []
+  )
+
   return (
     <div ref={chromeRef} className={styles.chrome}>
       <TabBar
@@ -43,11 +53,13 @@ export default function App(): JSX.Element {
         isLoading={active?.isLoading ?? false}
         canGoBack={active?.canGoBack ?? false}
         canGoForward={active?.canGoForward ?? false}
+        inputRef={addressRef}
         onBack={browser.goBack}
         onForward={browser.goForward}
         onReload={browser.reload}
         onStop={browser.stop}
         onNavigate={browser.navigate}
+        onFocusPage={browser.focusPage}
       />
     </div>
   )

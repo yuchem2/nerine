@@ -43,11 +43,19 @@ const api = {
     goBack: (): void => ipcRenderer.send('page:go-back'),
     goForward: (): void => ipcRenderer.send('page:go-forward'),
     reload: (): void => ipcRenderer.send('page:reload'),
-    stop: (): void => ipcRenderer.send('page:stop')
+    stop: (): void => ipcRenderer.send('page:stop'),
+    focus: (): void => ipcRenderer.send('page:focus')
   },
   chrome: {
     // The page views sit below the chrome, so the main process needs its height.
-    reportHeight: (height: number): void => ipcRenderer.send('chrome:height', height)
+    reportHeight: (height: number): void => ipcRenderer.send('chrome:height', height),
+    onFocusAddress: (listener: () => void): (() => void) => {
+      const handler = (): void => listener()
+      ipcRenderer.on('chrome:focus-address', handler)
+      return () => {
+        ipcRenderer.removeListener('chrome:focus-address', handler)
+      }
+    }
   },
   // Used by the overlay page only. The chrome never draws over a web page.
   overlay: {

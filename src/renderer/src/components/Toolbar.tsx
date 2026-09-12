@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type JSX, type MouseEvent, type SubmitEvent } from 'react'
+import {
+  useEffect,
+  useState,
+  type JSX,
+  type MouseEvent,
+  type RefObject,
+  type SubmitEvent
+} from 'react'
 import { ArrowLeftIcon, ArrowRightIcon, CrossIcon, ReloadIcon } from '@renderer/components/Icons'
 import { toDisplayUrl } from '@renderer/lib/url'
 import styles from '@renderer/components/Toolbar.module.css'
@@ -8,11 +15,14 @@ interface ToolbarProps {
   isLoading: boolean
   canGoBack: boolean
   canGoForward: boolean
+  // Held by the chrome, which focuses the address bar when the main process asks.
+  inputRef: RefObject<HTMLInputElement | null>
   onBack: () => void
   onForward: () => void
   onReload: () => void
   onStop: () => void
   onNavigate: (input: string) => void
+  onFocusPage: () => void
 }
 
 export default function Toolbar({
@@ -20,13 +30,14 @@ export default function Toolbar({
   isLoading,
   canGoBack,
   canGoForward,
+  inputRef,
   onBack,
   onForward,
   onReload,
   onStop,
-  onNavigate
+  onNavigate,
+  onFocusPage
 }: ToolbarProps): JSX.Element {
-  const inputRef = useRef<HTMLInputElement>(null)
   const display = toDisplayUrl(url)
   const [draft, setDraft] = useState(display)
   const [isEditing, setIsEditing] = useState(false)
@@ -39,12 +50,18 @@ export default function Toolbar({
   // Selecting has to wait for the raw URL to reach the DOM.
   useEffect(() => {
     if (isEditing) inputRef.current?.select()
-  }, [isEditing])
+  }, [isEditing, inputRef])
+
+  // Leaving the bar hands the keyboard back to the page.
+  const leave = (): void => {
+    inputRef.current?.blur()
+    onFocusPage()
+  }
 
   const handleSubmit = (event: SubmitEvent<HTMLFormElement>): void => {
     event.preventDefault()
     onNavigate(draft)
-    inputRef.current?.blur()
+    leave()
   }
 
   // Focusing selects everything, so keep the click from collapsing that to a caret.
@@ -107,7 +124,7 @@ export default function Toolbar({
           onBlur={() => setIsEditing(false)}
           onKeyDown={(event) => {
             // Blur puts the page URL back, so Escape only has to leave the field.
-            if (event.key === 'Escape') event.currentTarget.blur()
+            if (event.key === 'Escape') leave()
           }}
         />
       </form>
