@@ -6,6 +6,7 @@ export interface TabState {
   title: string
   faviconUrl: string | null
   isLoading: boolean
+  zoomFactor: number
   canGoBack: boolean
   canGoForward: boolean
 }

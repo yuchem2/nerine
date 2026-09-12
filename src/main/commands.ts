@@ -4,10 +4,6 @@ import { menu } from './overlay'
 import type { OverlayMenuEntry } from '../preload'
 import type { Tabs } from './tabs'
 
-// Electron reads zoom as 1.2^level, and half steps are what its own zoom roles use.
-const ZOOM_STEP = 0.5
-const ZOOM_LIMIT = 5
-
 export interface CommandContext {
   window: BrowserWindow
   tabs: Tabs
@@ -53,6 +49,15 @@ export function runCommand(command: Command, ctx: CommandContext): void {
     case 'tab:select':
       tabs.selectAt(command.index)
       return
+    case 'zoom:in':
+      tabs.zoom(1)
+      return
+    case 'zoom:out':
+      tabs.zoom(-1)
+      return
+    case 'zoom:reset':
+      tabs.resetZoom()
+      return
     case 'address:focus':
       ctx.window.webContents.focus()
       ctx.window.webContents.send('chrome:focus-address')
@@ -83,15 +88,6 @@ export function runCommand(command: Command, ctx: CommandContext): void {
       return
     case 'page:stop':
       contents.stop()
-      return
-    case 'zoom:in':
-      zoom(contents, ZOOM_STEP)
-      return
-    case 'zoom:out':
-      zoom(contents, -ZOOM_STEP)
-      return
-    case 'zoom:reset':
-      contents.setZoomLevel(0)
       return
     case 'edit:cut':
       contents.cut()
@@ -228,11 +224,6 @@ function toOverlayEntry(part: Part): OverlayMenuEntry {
 
 function isEntry(part: Part): part is Entry {
   return part !== 'separator'
-}
-
-function zoom(contents: WebContents, delta: number): void {
-  const level = contents.getZoomLevel() + delta
-  contents.setZoomLevel(Math.max(Math.min(level, ZOOM_LIMIT), -ZOOM_LIMIT))
 }
 
 // Docked DevTools would fight us for the bounds of a view we place ourselves.

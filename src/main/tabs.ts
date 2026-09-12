@@ -4,6 +4,7 @@ import { onLayoutChange, pageBounds } from './layout'
 import { confirm } from './overlay'
 import { trackPage } from './perf'
 import { attachShortcuts } from './shortcuts'
+import { DEFAULT_ZOOM, nextZoom } from './zoom'
 import type { BrowserState, TabState } from '../preload'
 
 const HOME_URL = 'https://google.com'
@@ -27,6 +28,8 @@ export interface Tabs {
   /** A negative index means the last tab. */
   selectAt: (index: number) => void
   cycle: (delta: number) => void
+  zoom: (direction: 1 | -1) => void
+  resetZoom: () => void
   activeContents: () => WebContents | null
 }
 
@@ -91,6 +94,7 @@ export function attachTabs(window: BrowserWindow): void {
       title: contents.getTitle(),
       faviconUrl: tab.faviconUrl,
       isLoading: contents.isLoading(),
+      zoomFactor: contents.getZoomFactor(),
       canGoBack: contents.navigationHistory.canGoBack(),
       canGoForward: contents.navigationHistory.canGoForward()
     }
@@ -123,6 +127,12 @@ export function attachTabs(window: BrowserWindow): void {
     const index = open.findIndex((tab) => tab.id === activeId)
     if (index === -1) return
     select(open[(index + delta + open.length) % open.length].id)
+  }
+
+  const zoomTab = (tab: Tab, direction: 1 | -1): void => {
+    const factor = nextZoom(tab.view.webContents.getZoomFactor(), direction)
+    if (factor !== null) tab.view.webContents.setZoomFactor(factor)
+    publish()
   }
 
   const create = (url: string, activate: boolean): void => {
@@ -181,6 +191,11 @@ export function attachTabs(window: BrowserWindow): void {
       publish()
     })
 
+    // Ctrl and the wheel arrives here rather than as a key.
+    contents.on('zoom-changed', (_event, direction) => {
+      zoomTab(tab, direction === 'in' ? 1 : -1)
+    })
+
     attachShortcuts(contents, dispatch)
     contents.on('context-menu', (_event, params) => {
       void showContextMenu(params, ctx)
@@ -209,6 +224,16 @@ export function attachTabs(window: BrowserWindow): void {
     select,
     selectAt,
     cycle,
+    zoom: (direction) => {
+      const tab = active()
+      if (tab) zoomTab(tab, direction)
+    },
+    resetZoom: () => {
+      const tab = active()
+      if (!tab) return
+      tab.view.webContents.setZoomFactor(DEFAULT_ZOOM)
+      publish()
+    },
     activeContents: () => active()?.view.webContents ?? null
   }
   const ctx: CommandContext = { window, tabs: controller }
