@@ -1,4 +1,12 @@
-import type { BrowserState, NerineApi, OverlayRequest as Request, TabState } from './index'
+import type {
+  BrowserState,
+  NerineApi,
+  OverlayMenuEntry,
+  OverlayMenuItem,
+  OverlayMenuRequest,
+  OverlayRequest as Request,
+  TabState
+} from './index'
 
 declare global {
   interface Window {
@@ -9,6 +17,9 @@ declare global {
     type Tab = TabState
     type State = BrowserState
     type OverlayRequest = Request
+    type OverlayMenu = OverlayMenuRequest
+    type MenuEntry = OverlayMenuEntry
+    type MenuItem = OverlayMenuItem
   }
 }
 

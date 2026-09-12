@@ -1,0 +1,42 @@
+/* The page shows through, so this layer only catches the click that dismisses the menu. */
+.layer {
+  position: relative;
+  height: 100%;
+}
+
+.menu {
+  position: absolute;
+  min-width: 200px;
+  padding: var(--space-2) 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-panel);
+  outline: none;
+}
+
+.item {
+  display: block;
+  width: 100%;
+  padding: var(--space-2) var(--space-5);
+  color: var(--fg-primary);
+  text-align: left;
+  white-space: nowrap;
+  background: none;
+  border: 0;
+  cursor: default;
+}
+
+.highlighted:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.item:disabled {
+  color: var(--fg-muted);
+  opacity: 0.4;
+}
+
+.separator {
+  margin: var(--space-2) 0;
+  border-top: 1px solid var(--border-subtle);
+}

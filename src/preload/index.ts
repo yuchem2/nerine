@@ -23,6 +23,21 @@ export interface OverlayRequest {
   cancelLabel: string
 }
 
+export interface OverlayMenuItem {
+  id: string
+  label: string
+  enabled: boolean
+}
+
+export type OverlayMenuEntry = OverlayMenuItem | 'separator'
+
+export interface OverlayMenuRequest {
+  /** Window coordinates, since the overlay covers everything the window draws. */
+  x: number
+  y: number
+  entries: OverlayMenuEntry[]
+}
+
 // Never expose ipcRenderer itself. Each channel gets a wrapper.
 const api = {
   tabs: {
@@ -66,7 +81,16 @@ const api = {
         ipcRenderer.removeListener('overlay:show', handler)
       }
     },
-    respond: (confirmed: boolean): void => ipcRenderer.send('overlay:respond', confirmed)
+    respond: (confirmed: boolean): void => ipcRenderer.send('overlay:respond', confirmed),
+    onMenu: (listener: (request: OverlayMenuRequest) => void): (() => void) => {
+      const handler = (_event: IpcRendererEvent, request: OverlayMenuRequest): void =>
+        listener(request)
+      ipcRenderer.on('overlay:menu', handler)
+      return () => {
+        ipcRenderer.removeListener('overlay:menu', handler)
+      }
+    },
+    pick: (id: string | null): void => ipcRenderer.send('overlay:pick', id)
   }
 } as const
 

@@ -1,45 +1,38 @@
-import { useEffect, useRef, useState, type JSX } from 'react'
-import styles from '@renderer/overlay/Overlay.module.css'
+import { useEffect, useState, type JSX } from 'react'
+import Dialog from '@renderer/overlay/Dialog'
+import Menu from '@renderer/overlay/Menu'
 
+/** Routes whatever the main process asks for onto the layer above the pages. */
 export default function Overlay(): JSX.Element | null {
-  const [request, setRequest] = useState<Nerine.OverlayRequest | null>(null)
-  const cancelRef = useRef<HTMLButtonElement>(null)
+  const [dialog, setDialog] = useState<Nerine.OverlayRequest | null>(null)
+  const [menu, setMenu] = useState<Nerine.OverlayMenu | null>(null)
 
-  useEffect(() => window.nerine.overlay.onShow(setRequest), [])
+  useEffect(() => window.nerine.overlay.onShow(setDialog), [])
+  useEffect(() => window.nerine.overlay.onMenu(setMenu), [])
 
-  // Cancel holds focus: the page chose this action, not the person answering for it.
-  useEffect(() => {
-    if (request) cancelRef.current?.focus()
-  }, [request])
-
-  if (!request) return null
-
-  const answer = (confirmed: boolean): void => {
-    setRequest(null)
-    window.nerine.overlay.respond(confirmed)
+  if (menu) {
+    return (
+      <Menu
+        request={menu}
+        onPick={(id) => {
+          setMenu(null)
+          window.nerine.overlay.pick(id)
+        }}
+      />
+    )
   }
 
-  return (
-    <div
-      className={styles.backdrop}
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') answer(false)
-      }}
-    >
-      <div className={styles.card} role="dialog" aria-modal="true" aria-label={request.title}>
-        <h1 className={styles.title}>{request.title}</h1>
-        <p className={styles.message}>{request.message}</p>
-        {request.detail && <p className={styles.detail}>{request.detail}</p>}
+  if (dialog) {
+    return (
+      <Dialog
+        request={dialog}
+        onAnswer={(confirmed) => {
+          setDialog(null)
+          window.nerine.overlay.respond(confirmed)
+        }}
+      />
+    )
+  }
 
-        <div className={styles.actions}>
-          <button ref={cancelRef} type="button" className={styles.button} onClick={() => answer(false)}>
-            {request.cancelLabel}
-          </button>
-          <button type="button" className={styles.button} onClick={() => answer(true)}>
-            {request.confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
+  return null
 }

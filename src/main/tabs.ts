@@ -1,5 +1,5 @@
 import { ipcMain, shell, WebContentsView, type BrowserWindow, type WebContents } from 'electron'
-import { runCommand, type Command, type CommandContext } from './commands'
+import { runCommand, showContextMenu, type Command, type CommandContext } from './commands'
 import { onLayoutChange, pageBounds } from './layout'
 import { confirm } from './overlay'
 import { trackPage } from './perf'
@@ -66,6 +66,8 @@ export function attachTabs(window: BrowserWindow): void {
         confirmLabel: 'Open',
         cancelLabel: 'Cancel'
       })
+      // The prompt held focus while it was up, so the page takes it back either way.
+      active()?.view.webContents.focus()
       if (confirmed) await shell.openExternal(url)
     } finally {
       asking = false
@@ -180,6 +182,9 @@ export function attachTabs(window: BrowserWindow): void {
     })
 
     attachShortcuts(contents, dispatch)
+    contents.on('context-menu', (_event, params) => {
+      void showContextMenu(params, ctx)
+    })
 
     // A link that wants its own window becomes a tab. Only other schemes leave.
     contents.setWindowOpenHandler(({ url, disposition }) => {

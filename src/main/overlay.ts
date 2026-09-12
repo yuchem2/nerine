@@ -1,48 +1,58 @@
 import { ipcMain, WebContentsView, type BrowserWindow } from 'electron'
 import { join } from 'node:path'
 import { contentBounds, onLayoutChange } from './layout'
-import type { OverlayRequest } from '../preload'
+import type { OverlayMenuRequest, OverlayRequest } from '../preload'
 
 interface Overlay {
   window: BrowserWindow
   view: WebContentsView | null
   ready: Promise<void>
   showing: boolean
-  answer: ((confirmed: boolean) => void) | null
+  answer: ((value: unknown) => void) | null
+  dismiss: (() => void) | null
 }
 
 let overlay: Overlay | null = null
 
 /** A transparent layer above the pages, for UI the chrome renderer cannot reach over them. */
 export function attachOverlay(window: BrowserWindow): void {
-  overlay = { window, view: null, ready: Promise.resolve(), showing: false, answer: null }
+  overlay = {
+    window,
+    view: null,
+    ready: Promise.resolve(),
+    showing: false,
+    answer: null,
+    dismiss: null
+  }
 
   onLayoutChange(() => {
     if (overlay?.view) overlay.view.setBounds(contentBounds(overlay.window))
   })
 
   window.on('closed', () => {
-    overlay?.answer?.(false)
+    overlay?.dismiss?.()
     overlay = null
   })
 }
 
 export function registerOverlayIpc(): void {
-  ipcMain.on('overlay:respond', (_event, confirmed: boolean) => {
-    if (!overlay?.answer) return
-
-    const answer = overlay.answer
-    overlay.answer = null
-    overlay.showing = false
-    overlay.view?.setVisible(false)
-    overlay.window.focus()
-    answer(confirmed)
-  })
+  ipcMain.on('overlay:respond', (_event, confirmed: boolean) => settle(confirmed))
+  ipcMain.on('overlay:pick', (_event, id: string | null) => settle(id))
 }
 
 /** Resolves false rather than hanging if the overlay is busy or the window is gone. */
-export async function confirm(request: OverlayRequest): Promise<boolean> {
-  if (!overlay || overlay.showing) return false
+export function confirm(request: OverlayRequest): Promise<boolean> {
+  return present((view) => view.webContents.send('overlay:show', request), false)
+}
+
+/** Resolves the id of the entry that was picked, or null if the menu was dismissed. */
+export function menu(request: OverlayMenuRequest): Promise<string | null> {
+  return present<string | null>((view) => view.webContents.send('overlay:menu', request), null)
+}
+
+async function present<T>(show: (view: WebContentsView) => void, cancelled: T): Promise<T> {
+  // One at a time, so a page cannot stack them.
+  if (!overlay || overlay.showing) return cancelled
 
   const current = overlay
   current.showing = true
@@ -51,7 +61,7 @@ export async function confirm(request: OverlayRequest): Promise<boolean> {
   // The page has to exist before it can be told what to draw.
   await current.ready
 
-  if (overlay !== current) return false
+  if (overlay !== current) return cancelled
 
   const { window } = current
   // Re-parenting puts it back on top of tabs created since the last time.
@@ -60,11 +70,24 @@ export async function confirm(request: OverlayRequest): Promise<boolean> {
   view.setBounds(contentBounds(window))
   view.setVisible(true)
   view.webContents.focus()
-  view.webContents.send('overlay:show', request)
+  show(view)
 
-  return new Promise((resolve) => {
-    current.answer = resolve
+  return new Promise<T>((resolve) => {
+    // One slot serves every kind of request, so the value is typed at the call site.
+    current.answer = resolve as (value: unknown) => void
+    current.dismiss = () => resolve(cancelled)
   })
+}
+
+function settle(value: unknown): void {
+  if (!overlay?.answer) return
+
+  const answer = overlay.answer
+  overlay.answer = null
+  overlay.dismiss = null
+  overlay.showing = false
+  overlay.view?.setVisible(false)
+  answer(value)
 }
 
 function ensureView(current: Overlay): WebContentsView {
