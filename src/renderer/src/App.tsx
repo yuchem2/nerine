@@ -82,7 +82,13 @@ export default function App(): JSX.Element {
           }}
         />
       )}
-      {panel && <PanelBar frame={panel} onClose={browser.togglePanel} />}
+      {panel && (
+        <PanelBar
+          frame={panel}
+          pageTitle={active?.title ?? ''}
+          onClose={browser.togglePanel}
+        />
+      )}
       {browser.devTools && (
         <>
           <Seam rect={browser.devTools.seam} onResize={window.nerine.devtools.resize} />

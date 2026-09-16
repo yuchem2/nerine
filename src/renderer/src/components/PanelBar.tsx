@@ -6,7 +6,14 @@ import styles from '@renderer/components/PanelBar.module.css'
 
 interface Props {
   frame: Nerine.Panel
+  /** The tab the copy would take, named so the button cannot mean the site instead. */
+  pageTitle: string
   onClose: () => void
+}
+
+/** Characters run to the thousands, and the exact figure is not the point. */
+function short(characters: number): string {
+  return characters < 1000 ? String(characters) : `${Math.round(characters / 1000)}k`
 }
 
 const SITE_NAMES: Record<Nerine.Provider, string> = {
@@ -20,8 +27,8 @@ const SITE_NAMES: Record<Nerine.Provider, string> = {
  * it. The view is rounded to the same radius, so its cut corners land on this rather than
  * on the window.
  */
-export default function PanelBar({ frame, onClose }: Props): JSX.Element {
-  const { gutter, card, header, body, mode, site } = frame
+export default function PanelBar({ frame, pageTitle, onClose }: Props): JSX.Element {
+  const { gutter, card, header, body, footer, mode, site, copied } = frame
   const siteButton = useRef<HTMLButtonElement>(null)
 
   const openSiteList = (): void => {
@@ -95,6 +102,25 @@ export default function PanelBar({ frame, onClose }: Props): JSX.Element {
           </IconButton>
         </div>
       </div>
+      {footer && (
+        <div
+          className={styles.footer}
+          style={{ left: footer.x, top: footer.y, width: footer.width, height: footer.height }}
+        >
+          <button
+            type="button"
+            className={styles.copy}
+            title={
+              pageTitle
+                ? `Copies the tab showing ${pageTitle}, for pasting into the site`
+                : 'Copies the page in the tab, for pasting into the site'
+            }
+            onClick={() => window.nerine.panel.copyPage()}
+          >
+            {copied > 0 ? `Copied ${short(copied)} characters` : `Copy tab: ${pageTitle || 'this page'}`}
+          </button>
+        </div>
+      )}
       {mode === 'site' && site.waiting && (
         <div
           className={styles.waitingBody}

@@ -1,9 +1,17 @@
 import { clipboard, type BrowserWindow, type ContextMenuParams, type WebContents } from 'electron'
 import { closeDevTools, dockDevTools, isDevToolsOpen, openDevTools } from './devtools'
+import { pageBlock, trimPage, PAGE_LIMIT } from './ai/prompt'
 import { adapters } from './ai/registry'
-import { showSite, siteProvider, togglePanel } from './panel'
+import {
+  acceptPageSharing,
+  markPageCopied,
+  pageSharingAccepted,
+  showSite,
+  siteProvider,
+  togglePanel
+} from './panel'
 import { pageBounds } from './layout'
-import { menu } from './overlay'
+import { confirm, menu } from './overlay'
 import { attachShortcuts, DEVTOOLS_KEYS } from './shortcuts'
 import type { DevToolsSide, OverlayMenuEntry } from '../preload'
 import type { Tabs } from './tabs'
@@ -259,6 +267,42 @@ export async function showSiteMenu(
 
   const chosen = adapters().find((adapter) => adapter.id === picked)
   if (chosen) showSite(ctx.window, chosen.id)
+}
+
+/**
+ * Hands the page to whichever site is open, by way of the clipboard. Typing into someone
+ * else's composer would mean reaching into their page, which this does not do.
+ */
+export async function copyPageForAi(ctx: CommandContext): Promise<void> {
+  const contents = ctx.tabs.activeContents()
+  if (!contents) return
+
+  const url = contents.getURL()
+  if (!url.startsWith('http')) return
+
+  // What the page says, as a reader sees it. Scripts on the page cannot see this run.
+  const text: string = await contents.executeJavaScript(
+    'document.body ? document.body.innerText : ""',
+    true
+  )
+
+  const size = Math.min(trimPage(text).length, PAGE_LIMIT)
+  if (!pageSharingAccepted()) {
+    const agreed = await confirm({
+      title: 'Copy this page for the AI',
+      message: `Its title, address and ${size.toLocaleString()} characters of text go to your clipboard, for you to paste where you like. Long pages are cut at ${PAGE_LIMIT.toLocaleString()}.`,
+      detail: url.length > 200 ? `${url.slice(0, 200)}...` : url,
+      confirmLabel: 'Copy',
+      cancelLabel: 'Cancel'
+    })
+    contents.focus()
+    if (!agreed) return
+    acceptPageSharing()
+  }
+
+  clipboard.writeText(pageBlock({ title: contents.getTitle(), url, text }))
+  // The count goes on the button, since what it costs to ask is worth knowing first.
+  markPageCopied(size)
 }
 
 /** DevTools takes the keyboard while it has focus, so it carries its own toggle back. */

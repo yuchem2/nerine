@@ -107,6 +107,10 @@ export interface PanelFrame {
   provider: ProviderId | null
   /** Where a view sits inside the card, which is what the chrome draws a wait over. */
   body: Rect
+  /** The strip at the foot of the card, which only site mode has. */
+  footer: Rect | null
+  /** Characters the last copy carried, for a moment after it happened. Zero otherwise. */
+  copied: number
   /** Whose site the panel would show, at what percentage, and how far along it is. */
   site: { provider: ProviderId; zoom: number; loading: boolean; waiting: boolean }
 }
@@ -202,6 +206,8 @@ const api = {
     siteMenu: (point: { x: number; y: number }): void =>
       ipcRenderer.send('panel:site-menu', point),
     zoomSite: (direction: 1 | -1 | 0): void => ipcRenderer.send('panel:site-zoom', direction),
+    /** Puts the page on the clipboard, for pasting into whichever site is open. */
+    copyPage: (): void => ipcRenderer.send('panel:copy-page'),
     // The seam is chrome, so the drag is read there and sent here.
     resize: (point: { x: number; y: number }): void => ipcRenderer.send('panel:resize', point)
   },

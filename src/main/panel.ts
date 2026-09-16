@@ -35,9 +35,16 @@ const SITE_ZOOM = 0.6
 // A site that never finishes is still worth looking at rather than hiding for good.
 const SWAP_LIMIT_MS = 10_000
 
+// Long enough to read, short enough not to become part of the furniture.
+const COPIED_MS = 2500
+
 // The card carries its own header, which the chrome paints because a view cannot round
-// its own top corners against one.
+// its own top corners against one. Site mode adds a footer, which is where handing the
+// page over belongs: the site's own composer is at the bottom too.
 const BAR = 32
+// The foot takes the card's bottom band with it: the button runs to the edge and
+// carries the card's corners itself, so there is nothing to pad.
+const FOOT = 30
 
 const PARTITION = 'persist:ai'
 
@@ -58,6 +65,9 @@ interface Panel {
   /** True from asking for another provider's site until that site can be seen. */
   siteSwapping: boolean
   swapLimit: NodeJS.Timeout | null
+  copied: NodeJS.Timeout | null
+  /** How much text the last copy carried, or zero once that has been said. */
+  copiedAt: number
   /** Whichever provider the panel is chatting with, which only it knows. */
   provider: ProviderId | null
   mode: PanelMode
@@ -128,6 +138,8 @@ export function openPanel(window: BrowserWindow): void {
     siteLoading: false,
     siteSwapping: false,
     swapLimit: null,
+    copied: null,
+    copiedAt: 0,
     provider: null,
     mode: 'chat',
     width: 0,
@@ -178,6 +190,7 @@ function destroy(): void {
 
   const { window, view, site } = panel
   clearTimeout(panel.swapLimit ?? undefined)
+  clearTimeout(panel.copied ?? undefined)
   panel = null
 
   for (const child of [view, site]) {
@@ -263,7 +276,8 @@ function remember(): void {
     mode: panel.mode,
     provider: panel.siteProvider,
     url: url && url.startsWith('https://') ? url : remembered.url,
-    zoom: panel.siteZoom
+    zoom: panel.siteZoom,
+    shared: remembered.shared
   }
   void writePanelState(remembered)
 }
@@ -285,6 +299,31 @@ export function zoomSite(direction: 1 | -1 | 0): void {
   panel.site.webContents.setZoomFactor(factor)
   refreshLayout()
   remember()
+}
+
+/** Whether the page block has been explained once and accepted. */
+export function pageSharingAccepted(): boolean {
+  return remembered.shared
+}
+
+export function acceptPageSharing(): void {
+  remembered = { ...remembered, shared: true }
+  void writePanelState(remembered)
+}
+
+/** Says the page went to the clipboard, and how much of it, while that is worth saying. */
+export function markPageCopied(characters: number): void {
+  if (!panel) return
+
+  clearTimeout(panel.copied ?? undefined)
+  panel.copiedAt = characters
+  panel.copied = setTimeout(() => {
+    if (!panel) return
+    panel.copiedAt = 0
+    panel.copied = null
+    refreshLayout()
+  }, COPIED_MS)
+  refreshLayout()
 }
 
 export function siteProvider(): ProviderId {
@@ -357,10 +396,20 @@ export function panelFrame(window: BrowserWindow): PanelFrame | null {
   return {
     gutter: gutterBounds(window),
     card,
-    header: Math.min(BAR, card.height),
+    header: header(card),
     mode: panel.mode,
     provider: panel.provider,
-    body: bodyOf(card, Math.min(BAR, card.height)),
+    body: bodyOf(card, header(card), footer(card, panel.mode)),
+    footer:
+      footer(card, panel.mode) === 0
+        ? null
+        : {
+            x: card.x,
+            y: card.y + card.height - footer(card, panel.mode),
+            width: card.width,
+            height: footer(card, panel.mode)
+          },
+    copied: panel.copiedAt,
     site: {
       provider: panel.siteProvider,
       zoom: Math.round(panel.siteZoom * 100),
@@ -374,19 +423,31 @@ function place(current: Panel): void {
   if (current.window.isDestroyed()) return
 
   const card = panelBounds(current.window)
-  const body = bodyOf(card, Math.min(BAR, card.height))
+  const body = bodyOf(card, header(card), footer(card, current.mode))
 
   // Both are laid out, so the one out of sight is never shown at a stale size.
   current.view.setBounds(body)
   current.site?.setBounds(body)
 }
 
-/** What the card holds under its header, which is where a view goes. */
-function bodyOf(card: Rectangle, header: number): Rectangle {
+/** What the card holds between its header and whatever sits at its foot. */
+function bodyOf(card: Rectangle, top: number, bottom: number): Rectangle {
+  // With no footer the band at the bottom of the card is what carries the corners.
+  const edge = bottom === 0 ? CARD_EDGE : 0
   return {
     x: card.x,
-    y: card.y + header,
+    y: card.y + top,
     width: card.width,
-    height: Math.max(card.height - header - CARD_EDGE, 0)
+    height: Math.max(card.height - top - bottom - edge, 0)
   }
+}
+
+function header(card: Rectangle): number {
+  return Math.min(BAR, card.height)
+}
+
+/** Only the site needs one: our own page has a composer of its own down there. */
+function footer(card: Rectangle, mode: PanelMode): number {
+  if (mode !== 'site') return 0
+  return Math.min(FOOT, Math.max(card.height - BAR, 0))
 }

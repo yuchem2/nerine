@@ -1,5 +1,6 @@
 import { ipcMain, shell, WebContentsView, type BrowserWindow, type WebContents } from 'electron'
 import {
+  copyPageForAi,
   runCommand,
   showContextMenu,
   showSiteMenu,
@@ -374,6 +375,9 @@ export function registerTabsIpc(): void {
     if (context) void showSiteMenu(point, context)
   })
   ipcMain.on('panel:site-zoom', (_event, direction: 1 | -1 | 0) => zoomSite(direction))
+  ipcMain.on('panel:copy-page', () => {
+    if (context) void copyPageForAi(context)
+  })
   ipcMain.on('devtools:resize', (_event, point: { x: number; y: number }) => {
     context?.tabs.resizeDevTools(point)
   })
