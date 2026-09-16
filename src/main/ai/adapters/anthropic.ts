@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { AiError, type Adapter, type AskRequest, type Model } from '../types'
+import { AiError, type Adapter, type Answer, type AskRequest, type Model } from '../types'
 
 // Long enough for an answer in a side panel, short enough to stay inside the SDK timeout.
 const MAX_TOKENS = 16000
@@ -7,13 +7,15 @@ const MAX_TOKENS = 16000
 export const anthropicAdapter: Adapter = {
   id: 'anthropic',
   label: 'Claude',
+  // Limits here are counted per minute, so the last day is the nearest useful span.
+  quota: { kind: 'rolling', hours: 24 },
   fallbackModels: [
     { id: 'claude-opus-5', label: 'Claude Opus 5', chat: true },
     { id: 'claude-sonnet-5', label: 'Claude Sonnet 5', chat: true },
     { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', chat: true }
   ],
 
-  async ask(key: string, request: AskRequest): Promise<string> {
+  async ask(key: string, request: AskRequest): Promise<Answer> {
     try {
       const message = await client(key).messages.create(
         {
@@ -29,11 +31,24 @@ export const anthropicAdapter: Adapter = {
       )
 
       // Thinking blocks come back empty by default, so only the text is of any use here.
-      return message.content
+      const text = message.content
         .filter((block) => block.type === 'text')
         .map((block) => block.text)
         .join('\n')
         .trim()
+
+      // Cached input is input too, as far as a limit is concerned.
+      const { usage } = message
+      return {
+        text,
+        usage: {
+          input:
+            usage.input_tokens +
+            (usage.cache_read_input_tokens ?? 0) +
+            (usage.cache_creation_input_tokens ?? 0),
+          output: usage.output_tokens
+        }
+      }
     } catch (failure) {
       throw translate(failure)
     }

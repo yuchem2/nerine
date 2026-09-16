@@ -35,6 +35,84 @@ const cachedModels = (provider: Nerine.Provider): Nerine.Model[] => {
 const cacheModels = (provider: Nerine.Provider, models: Nerine.Model[]): void =>
   write(`models:${provider}`, JSON.stringify(models))
 
+interface Ask {
+  at: number
+  input: number
+  output: number
+}
+
+interface Spent {
+  input: number
+  output: number
+  asks: number
+}
+
+const NOTHING_SPENT: Spent = { input: 0, output: 0, asks: 0 }
+
+// Long enough to cover any window a provider counts by, short enough to stay small.
+const KEEP_MS = 48 * 3_600_000
+
+/*
+ * Each answer is kept with the moment it came, and the panel adds up the ones inside
+ * whatever span the provider counts by. Storing the sum instead would fix the span at the
+ * moment of writing, which is exactly what a rolling window will not have.
+ */
+const asksOf = (provider: Nerine.Provider): Ask[] => {
+  const raw = read(`usage:${provider}`)
+  if (!raw) return []
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(isAsk)
+  } catch {
+    return []
+  }
+}
+
+const recordAsk = (provider: Nerine.Provider, usage: Nerine.Usage | null): Ask[] => {
+  const fresh = Date.now() - KEEP_MS
+  const asks = [
+    ...asksOf(provider).filter((ask) => ask.at >= fresh),
+    { at: Date.now(), input: usage?.input ?? 0, output: usage?.output ?? 0 }
+  ]
+  write(`usage:${provider}`, JSON.stringify(asks))
+  return asks
+}
+
+const spentSince = (asks: Ask[], since: number): Spent =>
+  asks
+    .filter((ask) => ask.at >= since)
+    .reduce(
+      (total, ask) => ({
+        input: total.input + ask.input,
+        output: total.output + ask.output,
+        asks: total.asks + 1
+      }),
+      NOTHING_SPENT
+    )
+
+function isAsk(value: unknown): value is Ask {
+  if (!value || typeof value !== 'object') return false
+  const ask = value as Record<string, unknown>
+  return (
+    typeof ask.at === 'number' && typeof ask.input === 'number' && typeof ask.output === 'number'
+  )
+}
+
+/** Says which span the figure covers, since that is the provider's choice and not ours. */
+function told(spent: Spent, period: Nerine.Window): string {
+  const counted = `${spent.input} in, ${spent.output} out`
+  return period.zone
+    ? `${counted} since midnight ${period.zone}`
+    : `${counted} over ${period.label.toLowerCase()}`
+}
+
+/** Counts run to the thousands quickly, and the exact figure is not the point. */
+function short(tokens: number): string {
+  if (tokens < 1000) return String(tokens)
+  return `${(tokens / 1000).toFixed(tokens < 9950 ? 1 : 0)}k`
+}
+
 function read(key: string): string | null {
   try {
     return localStorage.getItem(key)
@@ -58,6 +136,8 @@ export default function Chat({ ready, provider, onProvider, onSettings }: Props)
   const [draft, setDraft] = useState('')
   const [asking, setAsking] = useState<number | null>(null)
   const [error, setError] = useState('')
+  const [asks, setAsks] = useState<Ask[]>([])
+  const [period, setPeriod] = useState<Nerine.Window | null>(null)
   const end = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -73,6 +153,11 @@ export default function Chat({ ready, provider, onProvider, onSettings }: Props)
         listed[0]
       setModel(pick.id)
     }
+
+    setAsks(asksOf(provider))
+    void window.ai.chat.usageWindow(provider).then((window) => {
+      if (current) setPeriod(window)
+    })
 
     // The cache answers at once, the provider answers when it answers. A guess is only
     // worth showing while there is nothing better on hand.
@@ -107,7 +192,10 @@ export default function Chat({ ready, provider, onProvider, onSettings }: Props)
 
     try {
       const answer = await window.ai.chat.ask({ id, provider, model, messages: history })
-      setTurns([...history, { role: 'assistant', text: answer }])
+      setTurns([...history, { role: 'assistant', text: answer.text }])
+      setAsks(recordAsk(provider, answer.usage))
+      // A rolling span moves on, so the window is asked for again with each answer.
+      void window.ai.chat.usageWindow(provider).then(setPeriod)
     } catch (failure) {
       setError(reasonFrom(failure))
     } finally {
@@ -122,6 +210,8 @@ export default function Chat({ ready, provider, onProvider, onSettings }: Props)
       void send(event as unknown as FormEvent)
     }
   }
+
+  const spent = period ? spentSince(asks, period.since) : NOTHING_SPENT
 
   return (
     <div className={styles.chat}>
@@ -153,6 +243,13 @@ export default function Chat({ ready, provider, onProvider, onSettings }: Props)
           Keys
         </button>
       </div>
+
+      {period && spent.asks > 0 && (
+        <p className={styles.spent} title={told(spent, period)}>
+          {period.label} {short(spent.input + spent.output)} tokens over {spent.asks}{' '}
+          {spent.asks === 1 ? 'ask' : 'asks'}
+        </p>
+      )}
 
       <div className={styles.thread}>
         {turns.length === 0 && !asking && (

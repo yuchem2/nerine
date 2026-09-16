@@ -1,9 +1,9 @@
 import { ipcMain } from 'electron'
 import { SYSTEM_PROMPT } from './prompt'
 import { adapterFor } from './registry'
-import { AiError, type ChatMessage } from './types'
+import { AiError, type Answer, type ChatMessage } from './types'
 import { isProvider, readKey } from '../secrets'
-import type { ModelList, ProviderId } from '../../preload'
+import type { ModelList, ProviderId, UsageWindow } from '../../preload'
 
 /*
  * The connection between the browser and an adapter. It finds the key, hands the
@@ -22,7 +22,7 @@ export async function ask(
   provider: ProviderId,
   model: string,
   messages: ChatMessage[]
-): Promise<string> {
+): Promise<Answer> {
   const key = await readKey(provider)
   if (!key) {
     throw new AiError('no-key', 'Add a key for this provider first.')
@@ -64,7 +64,58 @@ export async function models(provider: ProviderId): Promise<ModelList> {
   return { models: adapter.fallbackModels, live: false }
 }
 
+/** The span a tally should cover, worked out from how the provider counts its own. */
+export function usageWindow(provider: ProviderId): UsageWindow {
+  const quota = adapterFor(provider).quota
+  const now = Date.now()
+
+  if (quota.kind === 'rolling') {
+    return { since: now - quota.hours * 3_600_000, label: `Last ${quota.hours}h`, zone: null }
+  }
+
+  return { since: midnightIn(quota.zone, now), label: 'Today', zone: zoneName(quota.zone, now) }
+}
+
+/** When the current day began in that zone, as an instant. */
+function midnightIn(zone: string, now: number): number {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: zone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(now)
+
+  const [year, month, day] = parts.split('-').map(Number)
+  // Midnight there written as though it were UTC, then moved by that zone's offset.
+  return Date.UTC(year, month - 1, day) - offsetOf(zone, now)
+}
+
+function offsetOf(zone: string, at: number): number {
+  const name = new Intl.DateTimeFormat('en-US', { timeZone: zone, timeZoneName: 'longOffset' })
+    .formatToParts(at)
+    .find((part) => part.type === 'timeZoneName')?.value
+
+  const match = /GMT([+-])(\d{2}):(\d{2})/.exec(name ?? '')
+  if (!match) return 0
+
+  const minutes = Number(match[2]) * 60 + Number(match[3])
+  return (match[1] === '-' ? -minutes : minutes) * 60_000
+}
+
+function zoneName(zone: string, at: number): string {
+  return (
+    new Intl.DateTimeFormat('en-US', { timeZone: zone, timeZoneName: 'short' })
+      .formatToParts(at)
+      .find((part) => part.type === 'timeZoneName')?.value ?? zone
+  )
+}
+
 export function registerAiIpc(): void {
+  ipcMain.handle('ai:usage-window', (_event, provider: unknown) => {
+    if (!isProvider(provider)) throw new Error('Unknown provider.')
+    return usageWindow(provider)
+  })
+
   ipcMain.handle('ai:models', (_event, provider: unknown) => {
     if (!isProvider(provider)) throw new Error('Unknown provider.')
     return models(provider)

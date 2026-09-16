@@ -1,5 +1,5 @@
 import { GoogleGenAI } from '@google/genai'
-import { AiError, type Adapter, type AskRequest, type Model } from '../types'
+import { AiError, type Adapter, type Answer, type AskRequest, type Model } from '../types'
 
 // The catalogue also holds embedding and image models, which this panel cannot use.
 const CHAT_ACTION = 'generateContent'
@@ -13,9 +13,11 @@ const NOT_CHAT = /image|imagen|veo|tts|audio|embedding|aqa|live/i
 export const geminiAdapter: Adapter = {
   id: 'gemini',
   label: 'Gemini',
+  // Google's daily quota turns over at midnight Pacific, wherever the machine happens to be.
+  quota: { kind: 'calendar', zone: 'America/Los_Angeles' },
   fallbackModels: [{ id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', chat: true }],
 
-  async ask(key: string, request: AskRequest): Promise<string> {
+  async ask(key: string, request: AskRequest): Promise<Answer> {
     try {
       const response = await client(key).models.generateContent({
         model: request.model,
@@ -26,7 +28,17 @@ export const geminiAdapter: Adapter = {
         })),
         config: { systemInstruction: request.system, abortSignal: request.signal }
       })
-      return (response.text ?? '').trim()
+      // Thinking is billed as output here, so it is counted as output.
+      const usage = response.usageMetadata
+      return {
+        text: (response.text ?? '').trim(),
+        usage: usage
+          ? {
+              input: usage.promptTokenCount ?? 0,
+              output: (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0)
+            }
+          : null
+      }
     } catch (failure) {
       throw translate(failure, 'ask')
     }

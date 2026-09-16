@@ -29,6 +29,26 @@ export interface ChatModel {
   chat: boolean
 }
 
+export interface UsageWindow {
+  /** The instant this span began, which is what a tally counts from. */
+  since: number
+  /** What to call it, such as Today or Last 24h. */
+  label: string
+  /** The zone a calendar day is counted in, or null for a rolling span. */
+  zone: string | null
+}
+
+export interface TokenUsage {
+  input: number
+  output: number
+}
+
+export interface AskAnswer {
+  text: string
+  /** Null when the provider sent no count with the answer. */
+  usage: TokenUsage | null
+}
+
 export interface ModelList {
   models: ChatModel[]
   /** False when this is the adapter's guess rather than the provider's own answer. */

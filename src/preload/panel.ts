@@ -1,5 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { AskRequest, KeyState, ModelList, ProviderId, SaveResult } from './index'
+import type {
+  AskAnswer,
+  AskRequest,
+  KeyState,
+  ModelList,
+  ProviderId,
+  SaveResult,
+  UsageWindow
+} from './index'
 
 /*
  * The AI panel is its own renderer and gets its own bridge. It can ask about keys and set
@@ -16,8 +24,10 @@ const api = {
   },
   chat: {
     models: (provider: ProviderId): Promise<ModelList> => ipcRenderer.invoke('ai:models', provider),
-    ask: (request: AskRequest): Promise<string> => ipcRenderer.invoke('ai:ask', request),
-    cancel: (id: number): void => ipcRenderer.send('ai:cancel', id)
+    ask: (request: AskRequest): Promise<AskAnswer> => ipcRenderer.invoke('ai:ask', request),
+    cancel: (id: number): void => ipcRenderer.send('ai:cancel', id),
+    usageWindow: (provider: ProviderId): Promise<UsageWindow> =>
+      ipcRenderer.invoke('ai:usage-window', provider)
   }
 } as const
 

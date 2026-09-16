@@ -1,5 +1,5 @@
 import OpenAI from 'openai'
-import { AiError, type Adapter, type AskRequest, type Model } from '../types'
+import { AiError, type Adapter, type Answer, type AskRequest, type Model } from '../types'
 
 /*
  * Anything that is not a chat model would only clutter the picker. The prefix lets the
@@ -12,9 +12,11 @@ const NOT_CHAT = /image|audio|realtime|transcribe|tts|instruct|moderation|embedd
 export const openaiAdapter: Adapter = {
   id: 'openai',
   label: 'ChatGPT',
+  // Requests per day here means the last 24 hours, not a day on any clock.
+  quota: { kind: 'rolling', hours: 24 },
   fallbackModels: [{ id: 'gpt-5.1', label: 'GPT-5.1', chat: true }],
 
-  async ask(key: string, request: AskRequest): Promise<string> {
+  async ask(key: string, request: AskRequest): Promise<Answer> {
     try {
       const response = await client(key).responses.create(
         {
@@ -24,7 +26,11 @@ export const openaiAdapter: Adapter = {
         },
         { signal: request.signal }
       )
-      return response.output_text.trim()
+      const usage = response.usage
+      return {
+        text: response.output_text.trim(),
+        usage: usage ? { input: usage.input_tokens, output: usage.output_tokens } : null
+      }
     } catch (failure) {
       throw translate(failure)
     }

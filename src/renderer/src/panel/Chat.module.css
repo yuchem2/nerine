@@ -37,6 +37,16 @@
   color: var(--fg-primary);
 }
 
+/* Small on purpose: it is a glance at how close a limit might be, not a readout. */
+.spent {
+  flex: none;
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  text-align: right;
+}
+
 .thread {
   display: flex;
   flex: 1;

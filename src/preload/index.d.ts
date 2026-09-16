@@ -1,4 +1,7 @@
 import type {
+  AskAnswer as Replied,
+  TokenUsage as Spend,
+  UsageWindow as Period,
   AskRequest as Question,
   BrowserState,
   ChatModel as Listed,
@@ -46,6 +49,9 @@ declare global {
     type Models = Listing
     type Turn = Said
     type Ask = Question
+    type Answer = Replied
+    type Usage = Spend
+    type Window = Period
     type Provider = Vendor
   }
 }

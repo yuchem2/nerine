@@ -20,6 +20,17 @@ export interface AskRequest {
   signal?: AbortSignal
 }
 
+export interface Usage {
+  input: number
+  output: number
+}
+
+export interface Answer {
+  text: string
+  /** Null when the provider sent no count with the answer. */
+  usage: Usage | null
+}
+
 export interface Model {
   id: string
   label: string
@@ -44,12 +55,20 @@ export class AiError extends Error {
   }
 }
 
+/**
+ * How a provider counts a day. Google's turns over at midnight on its own clock, while
+ * OpenAI's is the last 24 hours from whenever you ask. A tally kept the other way resets
+ * at the wrong moment and says nothing about how close a limit is.
+ */
+export type Quota = { kind: 'calendar'; zone: string } | { kind: 'rolling'; hours: number }
+
 export interface Adapter {
   id: ProviderId
   label: string
+  quota: Quota
   /** Offered before a key exists to ask the provider what it actually has. */
   fallbackModels: Model[]
-  ask: (key: string, request: AskRequest) => Promise<string>
+  ask: (key: string, request: AskRequest) => Promise<Answer>
   listModels: (key: string) => Promise<Model[]>
   /** Throws an AiError the moment the provider turns the key away. */
   verify: (key: string) => Promise<void>
