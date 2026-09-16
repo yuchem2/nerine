@@ -1,23 +1,24 @@
 import type { JSX, MouseEvent } from 'react'
-import styles from '@renderer/components/DevToolsSeam.module.css'
+import styles from '@renderer/components/Seam.module.css'
 
 interface Props {
   rect: Nerine.Rect
+  onResize: (point: { x: number; y: number }) => void
+  /** A gutter separates two surfaces. A seam only splits one of them in two. */
+  gutter?: boolean
 }
 
 /**
- * The gap between the page and DevTools, and the only strip of chrome the views leave
- * uncovered. The window keeps delivering the drag here even once the pointer is over a
- * page, so the whole gesture is read in this process.
+ * The strip a view leaves for the chrome, and the handle that resizes it. The window
+ * keeps delivering the drag here even once the pointer is over a view, so the whole
+ * gesture is read in this process.
  */
-export default function DevToolsSeam({ rect }: Props): JSX.Element {
-  const horizontal = rect.width > rect.height
-
+export default function Seam({ rect, onResize, gutter = false }: Props): JSX.Element {
   const startDrag = (event: MouseEvent<HTMLDivElement>): void => {
     event.preventDefault()
 
     const move = (moved: globalThis.MouseEvent): void => {
-      window.nerine.devtools.resize({ x: moved.clientX, y: moved.clientY })
+      onResize({ x: moved.clientX, y: moved.clientY })
     }
 
     const stop = (): void => {
@@ -31,13 +32,13 @@ export default function DevToolsSeam({ rect }: Props): JSX.Element {
 
   return (
     <div
-      className={styles.seam}
+      className={`${styles.seam} ${gutter ? styles.gutter : ''}`}
       style={{
         left: rect.x,
         top: rect.y,
         width: rect.width,
         height: rect.height,
-        cursor: horizontal ? 'ns-resize' : 'ew-resize'
+        cursor: rect.width > rect.height ? 'ns-resize' : 'ew-resize'
       }}
       title="Drag to resize"
       onMouseDown={startDrag}

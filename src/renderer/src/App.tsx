@@ -1,6 +1,7 @@
 import { useEffect, useRef, type JSX } from 'react'
 import DevToolsBar from '@renderer/components/DevToolsBar'
-import DevToolsSeam from '@renderer/components/DevToolsSeam'
+import PanelBar from '@renderer/components/PanelBar'
+import Seam from '@renderer/components/Seam'
 import TabBar from '@renderer/components/TabBar'
 import Toolbar from '@renderer/components/Toolbar'
 import { useTabs } from '@renderer/hooks/useTabs'
@@ -11,6 +12,7 @@ export default function App(): JSX.Element {
   const addressRef = useRef<HTMLInputElement>(null)
   const browser = useTabs()
   const { active } = browser
+  const panel = browser.panel
 
   // The tab strip carries the page title, so this only feeds the taskbar and alt-tab.
   useEffect(() => {
@@ -50,6 +52,8 @@ export default function App(): JSX.Element {
           onSelect={browser.selectTab}
           onClose={browser.closeTab}
           onCreate={browser.createTab}
+          onAskAi={browser.togglePanel}
+          isPanelOpen={panel !== null}
         />
         <Toolbar
           url={active?.url ?? ''}
@@ -67,9 +71,21 @@ export default function App(): JSX.Element {
           onToggleZoom={browser.toggleZoomPopup}
         />
       </div>
+      {browser.card && (
+        <div
+          className={styles.card}
+          style={{
+            left: browser.card.x,
+            top: browser.card.y,
+            width: browser.card.width,
+            height: browser.card.height
+          }}
+        />
+      )}
+      {panel && <PanelBar frame={panel} onClose={browser.togglePanel} />}
       {browser.devTools && (
         <>
-          <DevToolsSeam rect={browser.devTools.seam} />
+          <Seam rect={browser.devTools.seam} onResize={window.nerine.devtools.resize} />
           <DevToolsBar frame={browser.devTools} />
         </>
       )}

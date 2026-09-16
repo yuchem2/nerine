@@ -1,5 +1,6 @@
 import { clipboard, type BrowserWindow, type ContextMenuParams, type WebContents } from 'electron'
 import { closeDevTools, dockDevTools, isDevToolsOpen, openDevTools } from './devtools'
+import { togglePanel } from './panel'
 import { pageBounds } from './layout'
 import { menu } from './overlay'
 import { attachShortcuts, DEVTOOLS_KEYS } from './shortcuts'
@@ -16,6 +17,7 @@ export type Command =
   | { name: 'tab:new' | 'tab:close' | 'tab:next' | 'tab:previous' }
   | { name: 'tab:select'; index: number }
   | { name: 'address:focus' }
+  | { name: 'panel:toggle' }
   | { name: 'page:back' | 'page:forward' | 'page:reload' | 'page:hard-reload' | 'page:stop' }
   | { name: 'zoom:in' | 'zoom:out' | 'zoom:reset' }
   | { name: 'edit:cut' | 'edit:copy' | 'edit:paste' | 'edit:select-all' }
@@ -60,6 +62,9 @@ export function runCommand(command: Command, ctx: CommandContext): void {
       return
     case 'zoom:reset':
       tabs.resetZoom()
+      return
+    case 'panel:toggle':
+      togglePanel(ctx.window)
       return
     case 'address:focus':
       ctx.window.webContents.focus()

@@ -46,6 +46,7 @@ const BINDINGS: Binding[] = [
   { code: 'Tab', mod: true, shift: true, command: { name: 'tab:previous' } },
   ...TAB_SLOTS,
   { code: 'KeyL', mod: true, command: { name: 'address:focus' } },
+  { code: 'KeyA', mod: true, shift: true, command: { name: 'panel:toggle' } },
   ...NAVIGATION,
   { code: 'KeyR', mod: true, command: { name: 'page:reload' } },
   { code: 'KeyR', mod: true, shift: true, command: { name: 'page:hard-reload' } },

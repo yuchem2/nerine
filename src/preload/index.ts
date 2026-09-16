@@ -11,6 +11,17 @@ export interface TabState {
   canGoForward: boolean
 }
 
+export type ProviderId = 'anthropic' | 'openai' | 'gemini'
+
+export interface KeyState {
+  provider: ProviderId
+  configured: boolean
+  /** Last few characters, so a saved key can be told apart. Empty for a short one. */
+  hint: string
+  /** False when the machine has no secure store and the key lives for this run only. */
+  persisted: boolean
+}
+
 /** Window coordinates, since the chrome draws these around views it does not own. */
 export interface Rect {
   x: number
@@ -29,11 +40,24 @@ export interface DevToolsFrame {
   bar: Rect
 }
 
+export interface PanelFrame {
+  /** The space between the two cards, which drags the split. */
+  gutter: Rect
+  /** The whole panel card. The chrome paints it, the view sits inside it. */
+  card: Rect
+  /** Height of the header row at the top of the card. */
+  header: number
+}
+
 export interface BrowserState {
   tabs: TabState[]
   activeId: number
   /** Null while DevTools is closed. */
   devTools: DevToolsFrame | null
+  /** Null while the AI panel is closed. */
+  panel: PanelFrame | null
+  /** The card the page and DevTools share. Null while the page fills the window. */
+  card: Rect | null
 }
 
 export interface OverlayRequest {
@@ -106,6 +130,11 @@ const api = {
         ipcRenderer.removeListener('chrome:focus-address', handler)
       }
     }
+  },
+  panel: {
+    toggle: (): void => ipcRenderer.send('panel:toggle'),
+    // The seam is chrome, so the drag is read there and sent here.
+    resize: (point: { x: number; y: number }): void => ipcRenderer.send('panel:resize', point)
   },
   devtools: {
     // Dragged from the chrome: the seam and the bar are the strips the views leave to us.

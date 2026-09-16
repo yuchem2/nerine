@@ -39,6 +39,15 @@ export function ReloadIcon({ size = 16 }: IconProps = {}): JSX.Element {
   )
 }
 
+export function SparkIcon({ size = 16 }: IconProps = {}): JSX.Element {
+  return (
+    <svg {...shape} width={size} height={size}>
+      <path d="M9 2.5l1.3 3.2 3.2 1.3-3.2 1.3L9 11.5 7.7 8.3 4.5 7l3.2-1.3z" />
+      <path d="M4 11l.6 1.4 1.4.6-1.4.6L4 15l-.6-1.4L2 13l1.4-.6z" />
+    </svg>
+  )
+}
+
 interface DockIconProps extends IconProps {
   side: 'left' | 'bottom' | 'right'
 }

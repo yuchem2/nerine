@@ -1,5 +1,5 @@
 import { useState, type JSX, type MouseEvent } from 'react'
-import { CrossIcon, PageIcon, PlusIcon } from '@renderer/components/Icons'
+import { CrossIcon, PageIcon, PlusIcon, SparkIcon } from '@renderer/components/Icons'
 import styles from '@renderer/components/TabBar.module.css'
 
 interface TabBarProps {
@@ -8,6 +8,8 @@ interface TabBarProps {
   onSelect: (id: number) => void
   onClose: (id: number) => void
   onCreate: () => void
+  onAskAi: () => void
+  isPanelOpen: boolean
 }
 
 export default function TabBar({
@@ -15,7 +17,9 @@ export default function TabBar({
   activeId,
   onSelect,
   onClose,
-  onCreate
+  onCreate,
+  onAskAi,
+  isPanelOpen
 }: TabBarProps): JSX.Element {
   // Chromium reports /favicon.ico even where there is none, so track what failed to load.
   const [broken, setBroken] = useState<ReadonlySet<string>>(new Set())
@@ -71,6 +75,19 @@ export default function TabBar({
       >
         <PlusIcon size={14} />
       </button>
+
+      {/* The strip already ends where the window controls begin, so these land beside them. */}
+      <button
+        type="button"
+        className={`${styles.askAi} ${isPanelOpen ? styles.askAiOpen : ''}`}
+        onClick={onAskAi}
+        title="Ask AI"
+        aria-label="Ask AI"
+      >
+        <SparkIcon size={14} />
+        <span>Ask AI</span>
+      </button>
+      <span className={styles.divider} aria-hidden="true" />
     </div>
   )
 }

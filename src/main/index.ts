@@ -3,8 +3,10 @@ import { join } from 'node:path'
 import { installAppMenu } from './appmenu'
 import { registerLayoutIpc, watchLayout } from './layout'
 import { attachOverlay, registerOverlayIpc } from './overlay'
+import { attachPanel } from './panel'
+import { registerSecretsIpc } from './secrets'
 import { attachShortcuts } from './shortcuts'
-import { attachTabs, dispatch, registerTabsIpc } from './tabs'
+import { attachTabs, dispatch, openTab, registerTabsIpc } from './tabs'
 
 const isDev = !app.isPackaged
 
@@ -46,6 +48,7 @@ function createWindow(): void {
 
   watchLayout(mainWindow)
   attachOverlay(mainWindow)
+  attachPanel(mainWindow)
   attachTabs(mainWindow)
   // The chrome has focus while the address bar is in use, so it needs the keys too.
   attachShortcuts(mainWindow.webContents, dispatch)
@@ -62,6 +65,7 @@ app.whenReady().then(() => {
   registerLayoutIpc()
   registerOverlayIpc()
   registerTabsIpc()
+  registerSecretsIpc(openTab)
   createWindow()
 
   app.on('activate', () => {

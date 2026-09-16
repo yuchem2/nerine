@@ -8,6 +8,12 @@ export default defineConfig({
   preload: {
     build: {
       rollupOptions: {
+        // The chrome and the AI panel get their own bridge, so neither sees the other's
+        // channels.
+        input: {
+          index: resolve('src/preload/index.ts'),
+          panel: resolve('src/preload/panel.ts')
+        },
         // A sandboxed preload cannot be ESM. Everything else stays ESM.
         output: {
           format: 'cjs',
@@ -24,10 +30,12 @@ export default defineConfig({
     },
     build: {
       rollupOptions: {
-        // The overlay is a second page: it draws above the web pages, which the chrome cannot.
+        // Pages the chrome renderer cannot draw itself: the overlay sits above the web
+        // pages, and the panel is a view of its own beside them.
         input: {
           index: resolve('src/renderer/index.html'),
-          overlay: resolve('src/renderer/overlay.html')
+          overlay: resolve('src/renderer/overlay.html'),
+          panel: resolve('src/renderer/panel.html')
         }
       }
     },

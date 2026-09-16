@@ -7,7 +7,8 @@ import {
   resizeDevTools,
   setDevToolsVisible
 } from './devtools'
-import { onLayoutChange, pageBounds } from './layout'
+import { cardBounds, onLayoutChange, pageBounds } from './layout'
+import { panelFrame, resizePanel } from './panel'
 import { confirm, hideZoom, holdZoom, isZoomShowing, showZoom } from './overlay'
 import { trackPage } from './perf'
 import { attachShortcuts } from './shortcuts'
@@ -16,6 +17,8 @@ import type {
   BrowserState,
   DevToolsFrame,
   DevToolsSide,
+  PanelFrame,
+  Rect,
   TabState,
   ZoomAction,
   ZoomState
@@ -56,7 +59,7 @@ export function attachTabs(window: BrowserWindow): void {
   const open: Tab[] = []
   let activeId = -1
   let asking = false
-  let lastFrame: DevToolsFrame | null = null
+  let lastChrome = ''
 
   /**
    * The page picked this scheme, not the user, so anything unfamiliar is confirmed
@@ -105,10 +108,10 @@ export function attachTabs(window: BrowserWindow): void {
     const bounds = pageBounds(window)
     for (const tab of open) tab.view.setBounds(placeDevTools(tab.view.webContents, bounds))
 
-    // The chrome draws the strips DevTools leaves, so it has to hear where they moved.
-    const next = frame()
-    if (JSON.stringify(next) === JSON.stringify(lastFrame)) return
-    lastFrame = next
+    // The chrome draws the strips the views leave it, so it hears where they moved.
+    const next = JSON.stringify([frame(), panel(), card()])
+    if (next === lastChrome) return
+    lastChrome = next
     publish()
   }
 
@@ -132,10 +135,15 @@ export function attachTabs(window: BrowserWindow): void {
     return devToolsFrame(tab.view.webContents, pageBounds(window))
   }
 
+  const panel = (): PanelFrame | null => (window.isDestroyed() ? null : panelFrame(window))
+  const card = (): Rect | null => (window.isDestroyed() ? null : cardBounds(window))
+
   const read = (): BrowserState => ({
     tabs: open.map(toState),
     activeId,
-    devTools: frame()
+    devTools: frame(),
+    panel: panel(),
+    card: card()
   })
 
   const publish = (): void => {
@@ -312,6 +320,11 @@ export function attachTabs(window: BrowserWindow): void {
   create(HOME_URL, true)
 }
 
+/** Opens a URL as a tab, for the parts of main that have no command of their own. */
+export function openTab(url: string): void {
+  context?.tabs.create(url, true)
+}
+
 /** Runs a command against the window that owns the tabs. */
 export function dispatch(command: Command): void {
   if (context) runCommand(command, context)
@@ -336,6 +349,10 @@ export function registerTabsIpc(): void {
   ipcMain.on('page:stop', () => dispatch({ name: 'page:stop' }))
   ipcMain.on('page:focus', () => context?.tabs.activeContents()?.focus())
   ipcMain.on('chrome:zoom-popup', () => context?.tabs.toggleZoomPopup())
+  ipcMain.on('panel:toggle', () => dispatch({ name: 'panel:toggle' }))
+  ipcMain.on('panel:resize', (_event, point: { x: number; y: number }) => {
+    if (context) resizePanel(context.window, point)
+  })
   ipcMain.on('devtools:resize', (_event, point: { x: number; y: number }) => {
     context?.tabs.resizeDevTools(point)
   })

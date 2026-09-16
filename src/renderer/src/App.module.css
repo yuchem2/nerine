@@ -2,3 +2,13 @@
   display: flex;
   flex-direction: column;
 }
+
+/*
+ * The card the page and DevTools sit in. They are square views, so the corners belong to
+ * the band of this that shows above and below them.
+ */
+.card {
+  position: fixed;
+  background: var(--bg-chrome);
+  border-radius: var(--radius-lg);
+}

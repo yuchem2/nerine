@@ -2,3 +2,7 @@
   position: fixed;
   background: var(--bg-chrome);
 }
+
+.gutter {
+  background: var(--bg-app);
+}
