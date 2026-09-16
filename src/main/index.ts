@@ -62,6 +62,14 @@ function createWindow(): void {
   }
 }
 
+/*
+ * Chromium's own user agent, without the Electron token it adds. Nerine is a browser
+ * rather than an app with a web view inside it, and sites that see that token treat it as
+ * the latter: Google refuses to sign anyone in through what it reads as an embedded
+ * browser. Nothing else about the string changes.
+ */
+app.userAgentFallback = app.userAgentFallback.replace(/\sElectron\/\S+/, '')
+
 app.whenReady().then(() => {
   installAppMenu()
   registerLayoutIpc()
