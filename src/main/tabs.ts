@@ -1,11 +1,25 @@
 import { ipcMain, shell, WebContentsView, type BrowserWindow, type WebContents } from 'electron'
 import { runCommand, showContextMenu, type Command, type CommandContext } from './commands'
+import {
+  closeDevTools,
+  devToolsFrame,
+  placeDevTools,
+  resizeDevTools,
+  setDevToolsVisible
+} from './devtools'
 import { onLayoutChange, pageBounds } from './layout'
 import { confirm, hideZoom, holdZoom, isZoomShowing, showZoom } from './overlay'
 import { trackPage } from './perf'
 import { attachShortcuts } from './shortcuts'
 import { DEFAULT_ZOOM, nextZoom } from './zoom'
-import type { BrowserState, TabState, ZoomAction, ZoomState } from '../preload'
+import type {
+  BrowserState,
+  DevToolsFrame,
+  DevToolsSide,
+  TabState,
+  ZoomAction,
+  ZoomState
+} from '../preload'
 
 const HOME_URL = 'https://google.com'
 const NEW_TAB_URL = 'about:blank'
@@ -31,6 +45,7 @@ export interface Tabs {
   zoom: (direction: 1 | -1) => void
   resetZoom: () => void
   toggleZoomPopup: () => void
+  resizeDevTools: (point: { x: number; y: number }) => void
   activeContents: () => WebContents | null
 }
 
@@ -41,6 +56,7 @@ export function attachTabs(window: BrowserWindow): void {
   const open: Tab[] = []
   let activeId = -1
   let asking = false
+  let lastFrame: DevToolsFrame | null = null
 
   /**
    * The page picked this scheme, not the user, so anything unfamiliar is confirmed
@@ -83,8 +99,17 @@ export function attachTabs(window: BrowserWindow): void {
 
   // Hidden tabs are laid out too, so switching never shows a stale size.
   const layout = (): void => {
+    // Tearing DevTools down on the way out runs this once more, with nothing to measure.
+    if (window.isDestroyed()) return
+
     const bounds = pageBounds(window)
-    for (const tab of open) tab.view.setBounds(bounds)
+    for (const tab of open) tab.view.setBounds(placeDevTools(tab.view.webContents, bounds))
+
+    // The chrome draws the strips DevTools leaves, so it has to hear where they moved.
+    const next = frame()
+    if (JSON.stringify(next) === JSON.stringify(lastFrame)) return
+    lastFrame = next
+    publish()
   }
 
   const toState = (tab: Tab): TabState => {
@@ -101,7 +126,17 @@ export function attachTabs(window: BrowserWindow): void {
     }
   }
 
-  const read = (): BrowserState => ({ tabs: open.map(toState), activeId })
+  const frame = (): DevToolsFrame | null => {
+    const tab = active()
+    if (!tab || window.isDestroyed()) return null
+    return devToolsFrame(tab.view.webContents, pageBounds(window))
+  }
+
+  const read = (): BrowserState => ({
+    tabs: open.map(toState),
+    activeId,
+    devTools: frame()
+  })
 
   const publish = (): void => {
     if (window.isDestroyed()) return
@@ -112,7 +147,11 @@ export function attachTabs(window: BrowserWindow): void {
     const tab = find(id)
     if (!tab) return
 
-    for (const other of open) other.view.setVisible(other.id === id)
+    for (const other of open) {
+      other.view.setVisible(other.id === id)
+      // DevTools keeps its session while the tab is away, so it only goes out of sight.
+      setDevToolsVisible(other.view.webContents, other.id === id)
+    }
     // The popup belongs to the tab it was opened for.
     hideZoom()
     activeId = id
@@ -177,6 +216,7 @@ export function attachTabs(window: BrowserWindow): void {
     if (index === -1) return
 
     const [tab] = open.splice(index, 1)
+    closeDevTools(tab.view.webContents)
     window.contentView.removeChildView(tab.view)
     tab.view.webContents.close()
 
@@ -255,12 +295,16 @@ export function attachTabs(window: BrowserWindow): void {
       if (isZoomShowing()) hideZoom()
       else void showZoom(zoomState(tab))
     },
+    resizeDevTools: (point) => {
+      if (!window.isDestroyed()) resizeDevTools(pageBounds(window), point)
+    },
     activeContents: () => active()?.view.webContents ?? null
   }
   const ctx: CommandContext = { window, tabs: controller }
 
   onLayoutChange(layout)
   window.on('closed', () => {
+    for (const tab of open) closeDevTools(tab.view.webContents)
     context = null
   })
 
@@ -292,6 +336,13 @@ export function registerTabsIpc(): void {
   ipcMain.on('page:stop', () => dispatch({ name: 'page:stop' }))
   ipcMain.on('page:focus', () => context?.tabs.activeContents()?.focus())
   ipcMain.on('chrome:zoom-popup', () => context?.tabs.toggleZoomPopup())
+  ipcMain.on('devtools:resize', (_event, point: { x: number; y: number }) => {
+    context?.tabs.resizeDevTools(point)
+  })
+  ipcMain.on('devtools:dock', (_event, side: DevToolsSide) => {
+    dispatch({ name: 'devtools:dock', side })
+  })
+  ipcMain.on('devtools:toggle', () => dispatch({ name: 'devtools:toggle' }))
   ipcMain.on('overlay:zoom-action', (_event, action: ZoomAction) => {
     if (action === 'hold' || action === 'release') {
       holdZoom(action === 'hold')

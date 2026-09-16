@@ -5,6 +5,7 @@ export interface Browser {
   tabs: Nerine.Tab[]
   active: Nerine.Tab | null
   activeId: number
+  devTools: Nerine.DevTools | null
   createTab: () => void
   closeTab: (id: number) => void
   selectTab: (id: number) => void
@@ -17,7 +18,7 @@ export interface Browser {
   navigate: (input: string) => void
 }
 
-const EMPTY: Nerine.State = { tabs: [], activeId: -1 }
+const EMPTY: Nerine.State = { tabs: [], activeId: -1, devTools: null }
 
 /** Mirrors the tabs the main process owns and drives the active one. */
 export function useTabs(): Browser {
@@ -40,6 +41,7 @@ export function useTabs(): Browser {
     tabs: state.tabs,
     active: state.tabs.find((tab) => tab.id === state.activeId) ?? null,
     activeId: state.activeId,
+    devTools: state.devTools,
     createTab: window.nerine.tabs.create,
     closeTab: window.nerine.tabs.close,
     selectTab: window.nerine.tabs.activate,

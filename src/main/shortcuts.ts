@@ -3,7 +3,7 @@ import type { Command } from './commands'
 
 const IS_MAC = process.platform === 'darwin'
 
-interface Binding {
+export interface Binding {
   code: string
   /** Cmd on macOS, Ctrl everywhere else. */
   mod?: boolean
@@ -31,6 +31,14 @@ const TAB_SLOTS: Binding[] = Array.from({ length: 9 }, (_, slot) => ({
   command: { name: 'tab:select', index: slot === 8 ? -1 : slot }
 }))
 
+/** DevTools owns its keys while it has focus. These two are the ones we take back. */
+export const DEVTOOLS_KEYS: Binding[] = [
+  { code: 'F12', command: { name: 'devtools:toggle' } },
+  { code: 'KeyI', mod: true, shift: true, command: { name: 'devtools:toggle' } },
+  // The key Chrome DevTools uses for the same thing.
+  { code: 'KeyD', mod: true, shift: true, command: { name: 'devtools:dock', side: 'cycle' } }
+]
+
 const BINDINGS: Binding[] = [
   { code: 'KeyT', mod: true, command: { name: 'tab:new' } },
   { code: 'KeyW', mod: true, command: { name: 'tab:close' } },
@@ -49,20 +57,23 @@ const BINDINGS: Binding[] = [
   { code: 'Equal', mod: true, shift: true, command: { name: 'zoom:in' } },
   { code: 'Minus', mod: true, command: { name: 'zoom:out' } },
   { code: 'Digit0', mod: true, command: { name: 'zoom:reset' } },
-  { code: 'F12', command: { name: 'devtools:toggle' } },
-  { code: 'KeyI', mod: true, shift: true, command: { name: 'devtools:toggle' } }
+  ...DEVTOOLS_KEYS
 ]
 
 /**
  * Focus usually sits in a page view, so the chrome renderer never sees these keys.
  * The main process reads them instead, and a match does not reach the page.
  */
-export function attachShortcuts(contents: WebContents, run: (command: Command) => void): void {
+export function attachShortcuts(
+  contents: WebContents,
+  run: (command: Command) => void,
+  bindings: Binding[] = BINDINGS
+): void {
   contents.on('before-input-event', (event, input) => {
     // Holding a key down would open tabs by the dozen.
     if (input.type !== 'keyDown' || input.isAutoRepeat) return
 
-    const binding = match(input)
+    const binding = match(input, bindings)
     if (!binding) return
 
     run(binding.command)
@@ -70,13 +81,13 @@ export function attachShortcuts(contents: WebContents, run: (command: Command) =
   })
 }
 
-function match(input: Input): Binding | null {
+function match(input: Input, bindings: Binding[]): Binding | null {
   // The modifier this platform does not use for shortcuts has to stay clear.
   if (IS_MAC ? input.control : input.meta) return null
   const mod = IS_MAC ? input.meta : input.control
 
   return (
-    BINDINGS.find(
+    bindings.find(
       (binding) =>
         binding.code === input.code &&
         mod === (binding.mod ?? false) &&

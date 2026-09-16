@@ -1,5 +1,8 @@
 import type {
   BrowserState,
+  DevToolsFrame as Frame,
+  DevToolsSide as Side,
+  Rect as Rectangle,
   NerineApi,
   OverlayMenuEntry,
   OverlayMenuItem,
@@ -22,6 +25,9 @@ declare global {
     type MenuEntry = OverlayMenuEntry
     type MenuItem = OverlayMenuItem
     type ZoomState = Zoom
+    type DevTools = Frame
+    type DevToolsSide = Side
+    type Rect = Rectangle
   }
 }
 

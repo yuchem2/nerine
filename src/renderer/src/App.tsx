@@ -1,4 +1,6 @@
 import { useEffect, useRef, type JSX } from 'react'
+import DevToolsBar from '@renderer/components/DevToolsBar'
+import DevToolsSeam from '@renderer/components/DevToolsSeam'
 import TabBar from '@renderer/components/TabBar'
 import Toolbar from '@renderer/components/Toolbar'
 import { useTabs } from '@renderer/hooks/useTabs'
@@ -40,29 +42,37 @@ export default function App(): JSX.Element {
   )
 
   return (
-    <div ref={chromeRef} className={styles.chrome}>
-      <TabBar
-        tabs={browser.tabs}
-        activeId={browser.activeId}
-        onSelect={browser.selectTab}
-        onClose={browser.closeTab}
-        onCreate={browser.createTab}
-      />
-      <Toolbar
-        url={active?.url ?? ''}
-        isLoading={active?.isLoading ?? false}
-        canGoBack={active?.canGoBack ?? false}
-        canGoForward={active?.canGoForward ?? false}
-        zoomFactor={active?.zoomFactor ?? 1}
-        inputRef={addressRef}
-        onBack={browser.goBack}
-        onForward={browser.goForward}
-        onReload={browser.reload}
-        onStop={browser.stop}
-        onNavigate={browser.navigate}
-        onFocusPage={browser.focusPage}
-        onToggleZoom={browser.toggleZoomPopup}
-      />
-    </div>
+    <>
+      <div ref={chromeRef} className={styles.chrome}>
+        <TabBar
+          tabs={browser.tabs}
+          activeId={browser.activeId}
+          onSelect={browser.selectTab}
+          onClose={browser.closeTab}
+          onCreate={browser.createTab}
+        />
+        <Toolbar
+          url={active?.url ?? ''}
+          isLoading={active?.isLoading ?? false}
+          canGoBack={active?.canGoBack ?? false}
+          canGoForward={active?.canGoForward ?? false}
+          zoomFactor={active?.zoomFactor ?? 1}
+          inputRef={addressRef}
+          onBack={browser.goBack}
+          onForward={browser.goForward}
+          onReload={browser.reload}
+          onStop={browser.stop}
+          onNavigate={browser.navigate}
+          onFocusPage={browser.focusPage}
+          onToggleZoom={browser.toggleZoomPopup}
+        />
+      </div>
+      {browser.devTools && (
+        <>
+          <DevToolsSeam rect={browser.devTools.seam} />
+          <DevToolsBar frame={browser.devTools} />
+        </>
+      )}
+    </>
   )
 }

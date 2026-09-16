@@ -1,0 +1,4 @@
+.seam {
+  position: fixed;
+  background: var(--bg-chrome);
+}

@@ -39,6 +39,25 @@ export function ReloadIcon({ size = 16 }: IconProps = {}): JSX.Element {
   )
 }
 
+interface DockIconProps extends IconProps {
+  side: 'left' | 'bottom' | 'right'
+}
+
+const DOCKED_PANEL: Record<DockIconProps['side'], string> = {
+  left: 'M3 3h3.5v10H3z',
+  bottom: 'M3 9.5h10V13H3z',
+  right: 'M9.5 3H13v10H9.5z'
+}
+
+export function DockIcon({ size = 16, side }: DockIconProps): JSX.Element {
+  return (
+    <svg {...shape} width={size} height={size}>
+      <rect x="2.75" y="2.75" width="10.5" height="10.5" rx="1.5" />
+      <path d={DOCKED_PANEL[side]} fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
 export function CrossIcon({ size = 16 }: IconProps = {}): JSX.Element {
   return (
     <svg {...shape} width={size} height={size}>

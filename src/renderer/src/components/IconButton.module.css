@@ -21,6 +21,11 @@
   background: var(--bg-active);
 }
 
+.button.active {
+  color: var(--fg-primary);
+  background: var(--bg-active);
+}
+
 .button:disabled {
   color: var(--fg-muted);
   opacity: 0.4;

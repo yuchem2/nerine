@@ -22,6 +22,11 @@ export function onLayoutChange(listener: () => void): void {
   listeners.add(listener)
 }
 
+/** For changes that do not come from the window, such as DevTools taking a slice. */
+export function refreshLayout(): void {
+  notify()
+}
+
 export function watchLayout(window: BrowserWindow): void {
   window.on('resize', notify)
 }

@@ -11,9 +11,29 @@ export interface TabState {
   canGoForward: boolean
 }
 
+/** Window coordinates, since the chrome draws these around views it does not own. */
+export interface Rect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export type DevToolsSide = 'left' | 'bottom' | 'right'
+
+export interface DevToolsFrame {
+  side: DevToolsSide
+  /** The gap that resizes the split. */
+  seam: Rect
+  /** The strip above DevTools that carries its buttons. */
+  bar: Rect
+}
+
 export interface BrowserState {
   tabs: TabState[]
   activeId: number
+  /** Null while DevTools is closed. */
+  devTools: DevToolsFrame | null
 }
 
 export interface OverlayRequest {
@@ -86,6 +106,12 @@ const api = {
         ipcRenderer.removeListener('chrome:focus-address', handler)
       }
     }
+  },
+  devtools: {
+    // Dragged from the chrome: the seam and the bar are the strips the views leave to us.
+    resize: (point: { x: number; y: number }): void => ipcRenderer.send('devtools:resize', point),
+    dock: (side: DevToolsSide): void => ipcRenderer.send('devtools:dock', side),
+    toggle: (): void => ipcRenderer.send('devtools:toggle')
   },
   // Used by the overlay page only. The chrome never draws over a web page.
   overlay: {

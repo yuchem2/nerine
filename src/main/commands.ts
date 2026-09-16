@@ -1,7 +1,9 @@
 import { clipboard, type BrowserWindow, type ContextMenuParams, type WebContents } from 'electron'
+import { closeDevTools, dockDevTools, isDevToolsOpen, openDevTools } from './devtools'
 import { pageBounds } from './layout'
 import { menu } from './overlay'
-import type { OverlayMenuEntry } from '../preload'
+import { attachShortcuts, DEVTOOLS_KEYS } from './shortcuts'
+import type { DevToolsSide, OverlayMenuEntry } from '../preload'
 import type { Tabs } from './tabs'
 
 export interface CommandContext {
@@ -19,6 +21,7 @@ export type Command =
   | { name: 'edit:cut' | 'edit:copy' | 'edit:paste' | 'edit:select-all' }
   | { name: 'devtools:toggle' }
   | { name: 'devtools:inspect'; point: { x: number; y: number } }
+  | { name: 'devtools:dock'; side: DevToolsSide | 'cycle' }
   | { name: 'link:open' | 'link:copy'; url: string }
 
 interface Entry {
@@ -102,12 +105,19 @@ export function runCommand(command: Command, ctx: CommandContext): void {
       contents.selectAll()
       return
     case 'devtools:toggle':
-      if (contents.isDevToolsOpened()) contents.closeDevTools()
-      else openDevTools(contents)
+      if (isDevToolsOpen(contents)) {
+        closeDevTools(contents)
+        // DevTools held focus while it was up, so the page takes it back.
+        contents.focus()
+      } else showDevTools(contents, ctx)
       return
     case 'devtools:inspect':
-      openDevTools(contents)
+      showDevTools(contents, ctx)
       contents.inspectElement(command.point.x, command.point.y)
+      return
+    case 'devtools:dock':
+      // Moving a closed DevTools would change the layout with nothing on screen to show it.
+      if (isDevToolsOpen(contents)) dockDevTools(command.side)
       return
   }
 }
@@ -226,7 +236,10 @@ function isEntry(part: Part): part is Entry {
   return part !== 'separator'
 }
 
-// Docked DevTools would fight us for the bounds of a view we place ourselves.
-function openDevTools(contents: WebContents): void {
-  if (!contents.isDevToolsOpened()) contents.openDevTools({ mode: 'detach' })
+/** DevTools takes the keyboard while it has focus, so it carries its own toggle back. */
+function showDevTools(contents: WebContents, ctx: CommandContext): void {
+  const view = openDevTools(ctx.window, contents)
+  if (view) {
+    attachShortcuts(view.webContents, (command) => runCommand(command, ctx), DEVTOOLS_KEYS)
+  }
 }

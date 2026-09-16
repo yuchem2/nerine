@@ -8,6 +8,8 @@ interface IconButtonProps {
   children: ReactNode
   size?: number
   disabled?: boolean
+  /** For a group where one button is always the current choice. */
+  active?: boolean
   /** Keeps the click from moving focus, for buttons that sit over a page. */
   holdFocus?: boolean
 }
@@ -18,16 +20,18 @@ export default function IconButton({
   children,
   size = 26,
   disabled = false,
+  active = false,
   holdFocus = false
 }: IconButtonProps): JSX.Element {
   return (
     <button
       type="button"
-      className={styles.button}
+      className={`${styles.button} ${active ? styles.active : ''}`}
       style={{ width: size, height: size }}
       onClick={onClick}
       onMouseDown={holdFocus ? (event: MouseEvent) => event.preventDefault() : undefined}
       disabled={disabled}
+      aria-pressed={active || undefined}
       title={label}
       aria-label={label}
     >
