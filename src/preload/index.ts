@@ -92,6 +92,9 @@ export interface DevToolsFrame {
   bar: Rect
 }
 
+/** Our conversation, or the provider's own site in the same card. */
+export type PanelMode = 'chat' | 'site'
+
 export interface PanelFrame {
   /** The space between the two cards, which drags the split. */
   gutter: Rect
@@ -99,6 +102,13 @@ export interface PanelFrame {
   card: Rect
   /** Height of the header row at the top of the card. */
   header: number
+  mode: PanelMode
+  /** Which provider the panel is chatting with, or null before it has chosen. */
+  provider: ProviderId | null
+  /** Where a view sits inside the card, which is what the chrome draws a wait over. */
+  body: Rect
+  /** Whose site the panel would show, at what percentage, and how far along it is. */
+  site: { provider: ProviderId; zoom: number; loading: boolean; waiting: boolean }
 }
 
 export interface BrowserState {
@@ -185,6 +195,13 @@ const api = {
   },
   panel: {
     toggle: (): void => ipcRenderer.send('panel:toggle'),
+    // Which of the two the card shows. A null provider keeps whichever site was last on.
+    setMode: (mode: PanelMode, provider: ProviderId | null): void =>
+      ipcRenderer.send('panel:mode', mode, provider),
+    /** Opens the list of sites over the panel, since the chrome cannot draw over a view. */
+    siteMenu: (point: { x: number; y: number }): void =>
+      ipcRenderer.send('panel:site-menu', point),
+    zoomSite: (direction: 1 | -1 | 0): void => ipcRenderer.send('panel:site-zoom', direction),
     // The seam is chrome, so the drag is read there and sent here.
     resize: (point: { x: number; y: number }): void => ipcRenderer.send('panel:resize', point)
   },

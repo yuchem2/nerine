@@ -14,6 +14,7 @@ export const geminiAdapter: Adapter = {
   id: 'gemini',
   label: 'Gemini',
   // Google's daily quota turns over at midnight Pacific, wherever the machine happens to be.
+  site: 'https://gemini.google.com/app',
   quota: { kind: 'calendar', zone: 'America/Los_Angeles' },
   fallbackModels: [{ id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', chat: true }],
 

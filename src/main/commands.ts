@@ -1,6 +1,7 @@
 import { clipboard, type BrowserWindow, type ContextMenuParams, type WebContents } from 'electron'
 import { closeDevTools, dockDevTools, isDevToolsOpen, openDevTools } from './devtools'
-import { togglePanel } from './panel'
+import { adapters } from './ai/registry'
+import { showSite, siteProvider, togglePanel } from './panel'
 import { pageBounds } from './layout'
 import { menu } from './overlay'
 import { attachShortcuts, DEVTOOLS_KEYS } from './shortcuts'
@@ -239,6 +240,25 @@ function toOverlayEntry(part: Part): OverlayMenuEntry {
 
 function isEntry(part: Part): part is Entry {
   return part !== 'separator'
+}
+
+/** Which site the panel shows. Every provider is here: a site needs no key. */
+export async function showSiteMenu(
+  point: { x: number; y: number },
+  ctx: CommandContext
+): Promise<void> {
+  const current = siteProvider()
+  const picked = await menu({
+    ...point,
+    entries: adapters().map((adapter) => ({
+      id: adapter.id,
+      label: adapter.label,
+      enabled: adapter.id !== current
+    }))
+  })
+
+  const chosen = adapters().find((adapter) => adapter.id === picked)
+  if (chosen) showSite(ctx.window, chosen.id)
 }
 
 /** DevTools takes the keyboard while it has focus, so it carries its own toggle back. */

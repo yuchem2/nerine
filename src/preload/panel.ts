@@ -22,6 +22,10 @@ const api = {
     // Main owns the address, so the panel cannot ask for a tab on any URL it likes.
     openPage: (provider: ProviderId): void => ipcRenderer.send('keys:open-page', provider)
   },
+  panel: {
+    // The chrome draws the header, so it has to be told what the panel settled on.
+    using: (provider: ProviderId): void => ipcRenderer.send('panel:provider', provider)
+  },
   chat: {
     models: (provider: ProviderId): Promise<ModelList> => ipcRenderer.invoke('ai:models', provider),
     ask: (request: AskRequest): Promise<AskAnswer> => ipcRenderer.invoke('ai:ask', request),

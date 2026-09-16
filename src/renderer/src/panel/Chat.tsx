@@ -154,6 +154,7 @@ export default function Chat({ ready, provider, onProvider, onSettings }: Props)
       setModel(pick.id)
     }
 
+    window.ai.panel.using(provider)
     setAsks(asksOf(provider))
     void window.ai.chat.usageWindow(provider).then((window) => {
       if (current) setPeriod(window)

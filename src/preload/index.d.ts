@@ -16,6 +16,7 @@ import type {
   OverlayMenuRequest,
   OverlayRequest as Request,
   PanelFrame as Aside,
+  PanelMode as Showing,
   ProviderId as Vendor,
   Rect as Rectangle,
   SaveResult as Stored,
@@ -42,6 +43,7 @@ declare global {
     type DevTools = Frame
     type DevToolsSide = Side
     type Panel = Aside
+    type PanelMode = Showing
     type Rect = Rectangle
     type Key = Secret
     type Saved = Stored

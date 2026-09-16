@@ -65,6 +65,8 @@ export type Quota = { kind: 'calendar'; zone: string } | { kind: 'rolling'; hour
 export interface Adapter {
   id: ProviderId
   label: string
+  /** Where the provider's own chat lives, for people who would rather sign in to it. */
+  site: string
   quota: Quota
   /** Offered before a key exists to ask the provider what it actually has. */
   fallbackModels: Model[]

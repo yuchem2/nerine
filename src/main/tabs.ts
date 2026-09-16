@@ -1,5 +1,11 @@
 import { ipcMain, shell, WebContentsView, type BrowserWindow, type WebContents } from 'electron'
-import { runCommand, showContextMenu, type Command, type CommandContext } from './commands'
+import {
+  runCommand,
+  showContextMenu,
+  showSiteMenu,
+  type Command,
+  type CommandContext
+} from './commands'
 import {
   closeDevTools,
   devToolsFrame,
@@ -8,9 +14,10 @@ import {
   setDevToolsVisible
 } from './devtools'
 import { cardBounds, onLayoutChange, pageBounds } from './layout'
-import { panelFrame, resizePanel } from './panel'
+import { panelFrame, resizePanel, setPanelProvider, showChat, showSite, zoomSite } from './panel'
 import { confirm, hideZoom, holdZoom, isZoomShowing, showZoom } from './overlay'
 import { trackPage } from './perf'
+import { isProvider } from './secrets'
 import { attachShortcuts } from './shortcuts'
 import { DEFAULT_ZOOM, nextZoom } from './zoom'
 import type {
@@ -18,6 +25,8 @@ import type {
   DevToolsFrame,
   DevToolsSide,
   PanelFrame,
+  PanelMode,
+  ProviderId,
   Rect,
   TabState,
   ZoomAction,
@@ -353,6 +362,18 @@ export function registerTabsIpc(): void {
   ipcMain.on('panel:resize', (_event, point: { x: number; y: number }) => {
     if (context) resizePanel(context.window, point)
   })
+  ipcMain.on('panel:provider', (_event, provider: unknown) => {
+    setPanelProvider(isProvider(provider) ? provider : null)
+  })
+  ipcMain.on('panel:mode', (_event, mode: PanelMode, provider: ProviderId | null) => {
+    if (!context) return
+    if (mode === 'site') showSite(context.window, provider ?? undefined)
+    else showChat(context.window)
+  })
+  ipcMain.on('panel:site-menu', (_event, point: { x: number; y: number }) => {
+    if (context) void showSiteMenu(point, context)
+  })
+  ipcMain.on('panel:site-zoom', (_event, direction: 1 | -1 | 0) => zoomSite(direction))
   ipcMain.on('devtools:resize', (_event, point: { x: number; y: number }) => {
     context?.tabs.resizeDevTools(point)
   })

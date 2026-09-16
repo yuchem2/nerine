@@ -14,3 +14,7 @@ const ADAPTERS: Record<ProviderId, Adapter> = {
 export function adapterFor(provider: ProviderId): Adapter {
   return ADAPTERS[provider]
 }
+
+export function adapters(): Adapter[] {
+  return Object.values(ADAPTERS)
+}

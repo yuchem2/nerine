@@ -8,6 +8,7 @@ export const anthropicAdapter: Adapter = {
   id: 'anthropic',
   label: 'Claude',
   // Limits here are counted per minute, so the last day is the nearest useful span.
+  site: 'https://claude.ai',
   quota: { kind: 'rolling', hours: 24 },
   fallbackModels: [
     { id: 'claude-opus-5', label: 'Claude Opus 5', chat: true },

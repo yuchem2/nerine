@@ -13,6 +13,7 @@ export const openaiAdapter: Adapter = {
   id: 'openai',
   label: 'ChatGPT',
   // Requests per day here means the last 24 hours, not a day on any clock.
+  site: 'https://chatgpt.com',
   quota: { kind: 'rolling', hours: 24 },
   fallbackModels: [{ id: 'gpt-5.1', label: 'GPT-5.1', chat: true }],
 
