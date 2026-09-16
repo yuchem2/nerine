@@ -1,7 +1,7 @@
 import { app, ipcMain, safeStorage } from 'electron'
 import { readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { KeyState, ProviderId } from '../preload'
+import type { KeyState, ProviderId, SaveResult } from '../preload'
 
 /*
  * API keys never leave this process. The renderer is told whether one is set and the last
@@ -122,13 +122,30 @@ const KEY_PAGES: Record<ProviderId, string> = {
   gemini: 'https://aistudio.google.com/app/apikey'
 }
 
+interface Wiring {
+  /** Asks the provider whether the key works. Throws when it is turned away. */
+  check: (provider: ProviderId, key: string) => Promise<void>
+  openPage: (url: string) => void
+}
+
 /** Registered once, and every handler checks the provider it was handed. */
-export function registerSecretsIpc(openPage: (url: string) => void): void {
+export function registerSecretsIpc({ check, openPage }: Wiring): void {
   ipcMain.handle('keys:read', () => keyStates())
 
-  ipcMain.handle('keys:save', (_event, provider: unknown, key: unknown) => {
+  ipcMain.handle('keys:save', async (_event, provider: unknown, key: unknown): Promise<SaveResult> => {
     if (!isProvider(provider) || typeof key !== 'string') throw new Error('Unknown provider.')
-    return saveKey(provider, key)
+
+    // A key the provider refuses is never written. One we could not ask about is, with
+    // the renderer told as much, since a machine offline now may be online later.
+    let checked = true
+    try {
+      await check(provider, key)
+    } catch (failure) {
+      if (isRefusal(failure)) throw failure
+      checked = false
+    }
+
+    return { keys: await saveKey(provider, key), checked }
   })
 
   ipcMain.handle('keys:clear', (_event, provider: unknown) => {
@@ -139,6 +156,11 @@ export function registerSecretsIpc(openPage: (url: string) => void): void {
   ipcMain.on('keys:open-page', (_event, provider: unknown) => {
     if (isProvider(provider)) openPage(KEY_PAGES[provider])
   })
+}
+
+/** Only the provider turning the key away stops a save. Anything else is a bad line. */
+function isRefusal(failure: unknown): boolean {
+  return failure instanceof Error && 'failure' in failure && failure.failure === 'bad-key'
 }
 
 function hintOf(key: string): string {

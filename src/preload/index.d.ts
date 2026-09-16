@@ -1,5 +1,9 @@
 import type {
+  AskRequest as Question,
   BrowserState,
+  ChatModel as Listed,
+  ChatTurn as Said,
+  ModelList as Listing,
   DevToolsFrame as Frame,
   DevToolsSide as Side,
   KeyState as Secret,
@@ -11,6 +15,7 @@ import type {
   PanelFrame as Aside,
   ProviderId as Vendor,
   Rect as Rectangle,
+  SaveResult as Stored,
   TabState,
   ZoomState as Zoom
 } from './index'
@@ -36,6 +41,11 @@ declare global {
     type Panel = Aside
     type Rect = Rectangle
     type Key = Secret
+    type Saved = Stored
+    type Model = Listed
+    type Models = Listing
+    type Turn = Said
+    type Ask = Question
     type Provider = Vendor
   }
 }

@@ -22,6 +22,38 @@ export interface KeyState {
   persisted: boolean
 }
 
+export interface ChatModel {
+  id: string
+  label: string
+  /** False for the ones the picker keeps below the line, such as image models. */
+  chat: boolean
+}
+
+export interface ModelList {
+  models: ChatModel[]
+  /** False when this is the adapter's guess rather than the provider's own answer. */
+  live: boolean
+}
+
+export interface ChatTurn {
+  role: 'user' | 'assistant'
+  text: string
+}
+
+export interface AskRequest {
+  /** The renderer's handle on this question, which is also how it cancels one. */
+  id: number
+  provider: ProviderId
+  model: string
+  messages: ChatTurn[]
+}
+
+export interface SaveResult {
+  keys: KeyState[]
+  /** False when the provider could not be reached to confirm the key. */
+  checked: boolean
+}
+
 /** Window coordinates, since the chrome draws these around views it does not own. */
 export interface Rect {
   x: number

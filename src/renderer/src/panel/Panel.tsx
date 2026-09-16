@@ -1,59 +1,50 @@
 import { useEffect, useState, type JSX } from 'react'
-import KeyRow from '@renderer/panel/KeyRow'
-import ProviderPicker from '@renderer/panel/ProviderPicker'
+import Chat from '@renderer/panel/Chat'
+import Settings from '@renderer/panel/Settings'
 import styles from '@renderer/panel/Panel.module.css'
-
-const NAMES: Record<Nerine.Provider, string> = {
-  anthropic: 'Claude',
-  openai: 'ChatGPT',
-  gemini: 'Gemini'
-}
 
 export default function Panel(): JSX.Element {
   const [keys, setKeys] = useState<Nerine.Key[] | null>(null)
-  const [picked, setPicked] = useState<Nerine.Provider>('anthropic')
+  const [provider, setProvider] = useState<Nerine.Provider>('anthropic')
+  const [editingKeys, setEditingKeys] = useState(false)
 
   useEffect(() => {
     void window.ai.keys.read().then((state) => {
       setKeys(state)
       // Start on a provider that is ready to use, if there is one.
-      setPicked(state.find((key) => key.configured)?.provider ?? state[0].provider)
+      setProvider(state.find((key) => key.configured)?.provider ?? state[0].provider)
     })
   }, [])
 
   if (!keys) return <div className={styles.panel} />
 
-  const selected = keys.find((key) => key.provider === picked) ?? keys[0]
-  // The machine answers the same for every provider, so any row speaks for all of them.
-  const sessionOnly = keys.every((key) => !key.persisted)
+  const ready = keys.filter((key) => key.configured)
+  const settled = (state: Nerine.Key[]): void => {
+    setKeys(state)
+    const first = state.find((key) => key.configured)
+    if (first && !state.some((key) => key.configured && key.provider === provider)) {
+      setProvider(first.provider)
+    }
+  }
 
   return (
     <div className={styles.panel}>
-      <p className={styles.intro}>
-        Choose a provider and add its key. Keys stay on this machine and go nowhere except
-        the requests you send to that provider.
-      </p>
-
-      {sessionOnly && (
-        <p className={styles.warning}>
-          This machine has no secure store, so keys are held until Nerine closes.
-        </p>
-      )}
-
-      <div className={styles.field}>
-        <span className={styles.label}>Provider</span>
-        <ProviderPicker
-          choices={keys.map((key) => ({
-            id: key.provider,
-            label: NAMES[key.provider],
-            saved: key.configured
-          }))}
-          value={selected.provider}
-          onChange={setPicked}
+      {ready.length === 0 || editingKeys ? (
+        <Settings
+          keys={keys}
+          picked={provider}
+          onPick={setProvider}
+          onChange={settled}
+          onDone={ready.length > 0 ? () => setEditingKeys(false) : undefined}
         />
-      </div>
-
-      <KeyRow name={NAMES[selected.provider]} state={selected} onChange={setKeys} />
+      ) : (
+        <Chat
+          ready={ready}
+          provider={provider}
+          onProvider={setProvider}
+          onSettings={() => setEditingKeys(true)}
+        />
+      )}
     </div>
   )
 }

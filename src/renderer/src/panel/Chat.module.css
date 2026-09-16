@@ -1,0 +1,143 @@
+.chat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* The pickers take the bar, and the model gets the larger share: its names run long. */
+.bar > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.bar > div:last-of-type {
+  flex: 2;
+}
+
+.settings {
+  flex: none;
+  padding: 0 var(--space-2);
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.settings:hover {
+  color: var(--fg-primary);
+}
+
+.thread {
+  display: flex;
+  flex: 1;
+  /* Flex items refuse to shrink below their content unless told they may. */
+  min-height: 0;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  overflow-y: auto;
+}
+
+.empty {
+  margin: auto;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  text-align: center;
+  text-wrap: balance;
+}
+
+.asked,
+.answered {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  /* The conversation is text worth copying, unlike the rest of the chrome. */
+  user-select: text;
+}
+
+.asked {
+  align-self: flex-end;
+  max-width: 85%;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+}
+
+.answered {
+  color: var(--fg-primary);
+}
+
+.waiting {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+
+.waiting::after {
+  content: '...';
+}
+
+.error {
+  margin: 0;
+  color: var(--danger);
+  font-size: var(--text-sm);
+}
+
+.composer {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-3);
+  color: var(--fg-primary);
+  background: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  resize: none;
+}
+
+.input:focus {
+  border-color: var(--border-strong);
+  outline: none;
+}
+
+.send,
+.stop {
+  flex: none;
+  align-self: flex-end;
+  padding: 0 var(--space-4);
+  height: 32px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.send {
+  color: var(--fg-on-accent);
+  background: var(--accent);
+}
+
+.send:disabled {
+  color: var(--fg-muted);
+  background: var(--bg-hover);
+  cursor: default;
+}
+
+.stop {
+  color: var(--fg-primary);
+  background: var(--bg-hover);
+}

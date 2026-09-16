@@ -4,6 +4,8 @@ import { installAppMenu } from './appmenu'
 import { registerLayoutIpc, watchLayout } from './layout'
 import { attachOverlay, registerOverlayIpc } from './overlay'
 import { attachPanel } from './panel'
+import { registerAiIpc } from './ai/ask'
+import { adapterFor } from './ai/registry'
 import { registerSecretsIpc } from './secrets'
 import { attachShortcuts } from './shortcuts'
 import { attachTabs, dispatch, openTab, registerTabsIpc } from './tabs'
@@ -65,7 +67,11 @@ app.whenReady().then(() => {
   registerLayoutIpc()
   registerOverlayIpc()
   registerTabsIpc()
-  registerSecretsIpc(openTab)
+  registerAiIpc()
+  registerSecretsIpc({
+    check: (provider, key) => adapterFor(provider).verify(key),
+    openPage: openTab
+  })
   createWindow()
 
   app.on('activate', () => {

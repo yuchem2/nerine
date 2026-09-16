@@ -1,20 +1,24 @@
 import { useEffect, useRef, useState, type JSX } from 'react'
-import styles from '@renderer/panel/ProviderPicker.module.css'
+import styles from '@renderer/panel/Picker.module.css'
 
 export interface Choice {
-  id: Nerine.Provider
+  id: string
   label: string
-  saved: boolean
+  /** A word at the end of the row, such as whether a key is on file. */
+  note?: string
+  /** Rows carrying a new group name get a heading above them. */
+  group?: string
 }
 
 interface Props {
   choices: Choice[]
-  value: Nerine.Provider
-  onChange: (id: Nerine.Provider) => void
+  value: string
+  onChange: (id: string) => void
+  label: string
 }
 
 /** Drawn rather than native: the list the OS opens under a select ignores our styling. */
-export default function ProviderPicker({ choices, value, onChange }: Props): JSX.Element {
+export default function Picker({ choices, value, onChange, label }: Props): JSX.Element {
   const [open, setOpen] = useState(false)
   const box = useRef<HTMLDivElement>(null)
   const current = choices.find((choice) => choice.id === value) ?? choices[0]
@@ -37,24 +41,32 @@ export default function ProviderPicker({ choices, value, onChange }: Props): JSX
     }
   }, [open])
 
+  if (!current) return <></>
+
   return (
     <div className={styles.picker} ref={box}>
       <button
         type="button"
         className={styles.trigger}
+        aria-label={label}
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((shown) => !shown)}
       >
-        <span className={styles.label}>{current.label}</span>
-        {current.saved && <span className={styles.saved}>key saved</span>}
+        <span className={styles.label} title={current.label}>
+          {current.label}
+        </span>
+        {current.note && <span className={styles.note}>{current.note}</span>}
         <span className={`${styles.chevron} ${open ? styles.up : ''}`} />
       </button>
 
       {open && (
         <ul className={styles.list} role="listbox">
-          {choices.map((choice) => (
+          {choices.map((choice, index) => (
             <li key={choice.id}>
+              {choice.group && choice.group !== choices[index - 1]?.group && (
+                <span className={styles.group}>{choice.group}</span>
+              )}
               <button
                 type="button"
                 role="option"
@@ -65,8 +77,10 @@ export default function ProviderPicker({ choices, value, onChange }: Props): JSX
                   setOpen(false)
                 }}
               >
-                <span className={styles.label}>{choice.label}</span>
-                {choice.saved && <span className={styles.saved}>key saved</span>}
+                <span className={styles.label} title={choice.label}>
+                  {choice.label}
+                </span>
+                {choice.note && <span className={styles.note}>{choice.note}</span>}
               </button>
             </li>
           ))}
