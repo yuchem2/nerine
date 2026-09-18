@@ -1,0 +1,19 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Hostile innerText</title>
+<article>
+  <h1>Real headline</h1>
+  <p>REAL_BODY_MARKER this is the paragraph a reader actually sees on the page.</p>
+  <p>Second paragraph, also real, long enough that Readability has something to chew on.</p>
+</article>
+<script>
+  // The page stands in for what a main-world read would return, and watches for one.
+  window.__readWatched = 0
+  Object.defineProperty(HTMLElement.prototype, 'innerText', {
+    configurable: true,
+    get() {
+      window.__readWatched += 1
+      return 'POISONED_BY_PAGE'
+    }
+  })
+</script>

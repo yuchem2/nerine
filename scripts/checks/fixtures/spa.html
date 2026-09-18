@@ -1,0 +1,24 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Mailish</title>
+<div id="view"></div>
+<script>
+  const items = {
+    one: 'ITEM_ONE_MARKER The first message, opened on its own. It has a body of its own that the list never showed, and this is that body.',
+    two: 'ITEM_TWO_MARKER The second message, opened on its own, with a different body again.'
+  }
+  function render() {
+    const id = location.hash.replace('#', '')
+    const view = document.getElementById('view')
+    // Like a mail app: opening one replaces the list rather than sitting beside it.
+    if (items[id]) {
+      document.title = 'Mailish - ' + id
+      view.textContent = items[id]
+    } else {
+      document.title = 'Mailish'
+      view.textContent = 'LIST_MARKER Inbox. one: a subject line. two: another subject line.'
+    }
+  }
+  addEventListener('hashchange', render)
+  render()
+</script>

@@ -1,0 +1,10 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Same address, new content</title>
+<div id="view">BEFORE_MARKER what the page said when it was first attached.</div>
+<script>
+  // No navigation at all: the address never changes, only what is on screen.
+  window.swap = () => {
+    document.getElementById('view').textContent = 'AFTER_MARKER what the page says now.'
+  }
+</script>
