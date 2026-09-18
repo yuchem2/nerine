@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron'
-import { SYSTEM_PROMPT } from './prompt'
+import { pageBlock, systemPrompt, type PageStanding } from './prompt'
 import { adapterFor } from './registry'
-import { AiError, type Answer, type ChatMessage } from './types'
+import { AiError, type Answer, type ChatMessage, type PageBlock } from './types'
 import { isProvider, readKey } from '../secrets'
 import type { ModelList, ProviderId, UsageWindow } from '../../preload'
 
@@ -14,15 +14,15 @@ import type { ModelList, ProviderId, UsageWindow } from '../../preload'
 // A question longer than this is a paste gone wrong, not something to send.
 const MAX_TEXT = 200_000
 const MAX_MESSAGES = 200
+// A page is cut to PAGE_LIMIT on the way out, so this only keeps a bad payload small.
+const MAX_PAGE_TEXT = 400_000
+const MAX_URL = 2000
+const MAX_TITLE = 500
 
 const running = new Map<number, AbortController>()
 
-export async function ask(
-  id: number,
-  provider: ProviderId,
-  model: string,
-  messages: ChatMessage[]
-): Promise<Answer> {
+export async function ask(asked: Asked): Promise<Answer> {
+  const { id, provider, messages } = asked
   const key = await readKey(provider)
   if (!key) {
     throw new AiError('no-key', 'Add a key for this provider first.')
@@ -32,14 +32,34 @@ export async function ask(
   running.set(id, controller)
   try {
     return await adapterFor(provider).ask(key, {
-      model,
-      system: SYSTEM_PROMPT,
-      messages,
+      model: asked.model,
+      system: systemPrompt(standingOf(asked)),
+      messages: messages.map(fold),
       signal: controller.signal
     })
   } finally {
     running.delete(id)
   }
+}
+
+/**
+ * A page that has not changed is not resent, so the panel says whether the newest one is
+ * still what they are looking at. Reading that off the last turn alone would call every
+ * follow up about the same page stale.
+ */
+function standingOf({ messages, pageIsCurrent }: Asked): PageStanding {
+  if (!messages.some((entry) => entry.page)) return 'none'
+  return pageIsCurrent ? 'current' : 'earlier'
+}
+
+/**
+ * A page rides on the turn it was attached to and is folded into that turn's text here,
+ * so no adapter has to know a page can come with a question.
+ */
+function fold(entry: ChatMessage): ChatMessage {
+  if (!entry.page) return entry
+  return { role: entry.role, text: `${pageBlock(entry.page)}
+${entry.text}` }
 }
 
 export function cancel(id: number): void {
@@ -121,10 +141,7 @@ export function registerAiIpc(): void {
     return models(provider)
   })
 
-  ipcMain.handle('ai:ask', (_event, request: unknown) => {
-    const asked = parse(request)
-    return ask(asked.id, asked.provider, asked.model, asked.messages)
-  })
+  ipcMain.handle('ai:ask', (_event, request: unknown) => ask(parse(request)))
 
   ipcMain.on('ai:cancel', (_event, id: unknown) => {
     if (typeof id === 'number') cancel(id)
@@ -136,12 +153,14 @@ interface Asked {
   provider: ProviderId
   model: string
   messages: ChatMessage[]
+  /** Whether the newest page in the conversation is still the one in front of them. */
+  pageIsCurrent: boolean
 }
 
 /** The panel is ours, but nothing that crosses the bridge is taken on trust. */
 function parse(request: unknown): Asked {
   if (!request || typeof request !== 'object') throw new Error('Malformed request.')
-  const { id, provider, model, messages } = request as Record<string, unknown>
+  const { id, provider, model, messages, pageIsCurrent } = request as Record<string, unknown>
 
   if (typeof id !== 'number') throw new Error('Malformed request.')
   if (!isProvider(provider)) throw new Error('Unknown provider.')
@@ -152,16 +171,37 @@ function parse(request: unknown): Asked {
     throw new Error('Malformed conversation.')
   }
 
-  return { id, provider, model, messages: messages.map(toMessage) }
+  return {
+    id,
+    provider,
+    model,
+    messages: messages.map(toMessage),
+    pageIsCurrent: pageIsCurrent === true
+  }
 }
 
 function toMessage(value: unknown): ChatMessage {
   if (!value || typeof value !== 'object') throw new Error('Malformed conversation.')
-  const { role, text } = value as Record<string, unknown>
+  const { role, text, page } = value as Record<string, unknown>
 
   if (role !== 'user' && role !== 'assistant') throw new Error('Malformed conversation.')
   if (typeof text !== 'string' || text.length === 0 || text.length > MAX_TEXT) {
     throw new Error('Malformed conversation.')
   }
-  return { role, text }
+  // An answer never carries a page, so one on that side is a request gone wrong.
+  if (page === undefined || role === 'assistant') return { role, text }
+  return { role, text, page: toPage(page) }
+}
+
+function toPage(value: unknown): PageBlock {
+  if (!value || typeof value !== 'object') throw new Error('Malformed page.')
+  const { title, url, text } = value as Record<string, unknown>
+
+  if (typeof title !== 'string' || title.length > MAX_TITLE) throw new Error('Malformed page.')
+  if (typeof url !== 'string' || url.length === 0 || url.length > MAX_URL) {
+    throw new Error('Malformed page.')
+  }
+  if (typeof text !== 'string' || text.length > MAX_PAGE_TEXT) throw new Error('Malformed page.')
+
+  return { title, url, text }
 }

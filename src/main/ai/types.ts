@@ -10,6 +10,15 @@ export type Role = 'user' | 'assistant'
 export interface ChatMessage {
   role: Role
   text: string
+  /** The page that came with this turn. Only a question ever carries one. */
+  page?: PageBlock
+}
+
+/** A page as the model gets it: what it is, where it is, and what it says. */
+export interface PageBlock {
+  title: string
+  url: string
+  text: string
 }
 
 export interface AskRequest {

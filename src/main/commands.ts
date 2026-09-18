@@ -1,6 +1,7 @@
 import { clipboard, type BrowserWindow, type ContextMenuParams, type WebContents } from 'electron'
 import { closeDevTools, dockDevTools, isDevToolsOpen, openDevTools } from './devtools'
-import { pageBlock, trimPage, PAGE_LIMIT } from './ai/prompt'
+import { extractPage } from './ai/extract'
+import { pageBlock, PAGE_LIMIT } from './ai/prompt'
 import { adapters } from './ai/registry'
 import {
   acceptPageSharing,
@@ -277,21 +278,14 @@ export async function copyPageForAi(ctx: CommandContext): Promise<void> {
   const contents = ctx.tabs.activeContents()
   if (!contents) return
 
-  const url = contents.getURL()
-  if (!url.startsWith('http')) return
+  const page = await extractPage(contents)
+  if (!page) return
 
-  // What the page says, as a reader sees it. Scripts on the page cannot see this run.
-  const text: string = await contents.executeJavaScript(
-    'document.body ? document.body.innerText : ""',
-    true
-  )
-
-  const size = Math.min(trimPage(text).length, PAGE_LIMIT)
   if (!pageSharingAccepted()) {
     const agreed = await confirm({
       title: 'Copy this page for the AI',
-      message: `Its title, address and ${size.toLocaleString()} characters of text go to your clipboard, for you to paste where you like. Long pages are cut at ${PAGE_LIMIT.toLocaleString()}.`,
-      detail: url.length > 200 ? `${url.slice(0, 200)}...` : url,
+      message: `Its title, address and ${page.size.toLocaleString()} characters of text go to your clipboard, for you to paste where you like. Long pages are cut at ${PAGE_LIMIT.toLocaleString()}.`,
+      detail: page.url.length > 200 ? `${page.url.slice(0, 200)}...` : page.url,
       confirmLabel: 'Copy',
       cancelLabel: 'Cancel'
     })
@@ -300,9 +294,9 @@ export async function copyPageForAi(ctx: CommandContext): Promise<void> {
     acceptPageSharing()
   }
 
-  clipboard.writeText(pageBlock({ title: contents.getTitle(), url, text }))
+  clipboard.writeText(pageBlock(page))
   // The count goes on the button, since what it costs to ask is worth knowing first.
-  markPageCopied(size)
+  markPageCopied(page.size)
 }
 
 /** DevTools takes the keyboard while it has focus, so it carries its own toggle back. */

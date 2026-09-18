@@ -18,8 +18,10 @@ export interface PanelState {
   provider: ProviderId
   url: string | null
   zoom: number
-  /** Whether the page block has been explained once and accepted. */
+  /** Whether copying the page block to the clipboard has been explained and accepted. */
   shared: boolean
+  /** Whether sending the page to a provider has been explained and accepted. */
+  attached: boolean
 }
 
 export const FIRST_RUN: PanelState = {
@@ -28,7 +30,8 @@ export const FIRST_RUN: PanelState = {
   url: null,
   // A panel is far narrower than the desktop these sites are drawn for.
   zoom: 0.6,
-  shared: false
+  shared: false,
+  attached: false
 }
 
 export async function readPanelState(): Promise<PanelState> {
@@ -42,7 +45,8 @@ export async function readPanelState(): Promise<PanelState> {
       provider: isProvider(provider) ? provider : FIRST_RUN.provider,
       url: typeof url === 'string' && url.length <= MAX_URL && url.startsWith('https://') ? url : null,
       zoom: typeof zoom === 'number' && zoom > 0 ? zoom : FIRST_RUN.zoom,
-      shared: (parsed as Record<string, unknown>).shared === true
+      shared: (parsed as Record<string, unknown>).shared === true,
+      attached: (parsed as Record<string, unknown>).attached === true
     }
   } catch {
     // Nothing remembered is the same as a first run.

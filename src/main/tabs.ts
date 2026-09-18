@@ -14,10 +14,24 @@ import {
   resizeDevTools,
   setDevToolsVisible
 } from './devtools'
+import { canExtract, extractPage } from './ai/extract'
 import { cardBounds, onLayoutChange, pageBounds } from './layout'
-import { panelFrame, resizePanel, setPanelProvider, showChat, showSite, zoomSite } from './panel'
+import {
+  acceptPageAttach,
+  focusPanel,
+  pageAttachAccepted,
+  panelFrame,
+  resizePanel,
+  setPanelProvider,
+  showChat,
+  showSite,
+  tellPanelPage,
+  zoomSite
+} from './panel'
 import { confirm, hideZoom, holdZoom, isZoomShowing, showZoom } from './overlay'
 import { trackPage } from './perf'
+import { adapterFor } from './ai/registry'
+import { PAGE_LIMIT } from './ai/prompt'
 import { isProvider } from './secrets'
 import { attachShortcuts } from './shortcuts'
 import { DEFAULT_ZOOM, nextZoom } from './zoom'
@@ -25,6 +39,8 @@ import type {
   BrowserState,
   DevToolsFrame,
   DevToolsSide,
+  PageContext,
+  PageHandle,
   PanelFrame,
   PanelMode,
   ProviderId,
@@ -70,6 +86,7 @@ export function attachTabs(window: BrowserWindow): void {
   let activeId = -1
   let asking = false
   let lastChrome = ''
+  let lastPage = ''
 
   /**
    * The page picked this scheme, not the user, so anything unfamiliar is confirmed
@@ -159,6 +176,15 @@ export function attachTabs(window: BrowserWindow): void {
   const publish = (): void => {
     if (window.isDestroyed()) return
     window.webContents.send('tabs:state', read())
+    tellPage()
+  }
+
+  const tellPage = (): void => {
+    const page = facingPage()
+    const next = JSON.stringify(page)
+    if (next === lastPage) return
+    lastPage = next
+    tellPanelPage(page)
   }
 
   const select = (id: number): void => {
@@ -335,6 +361,45 @@ export function openTab(url: string): void {
   context?.tabs.create(url, true)
 }
 
+/** What the panel puts on its attach chip. The text stays here until it is asked for. */
+function facingPage(): PageHandle | null {
+  const contents = context?.tabs.activeContents()
+  if (!contents) return null
+
+  const url = contents.getURL()
+  return canExtract(url) ? { title: contents.getTitle(), url } : null
+}
+
+/**
+ * The page's text, for a question about to go out. Where it is going is said once and
+ * agreed to first: the clipboard and a provider are different destinations, so agreeing
+ * to one says nothing about the other.
+ */
+async function capturePage(provider: ProviderId): Promise<PageContext | null> {
+  const contents = context?.tabs.activeContents()
+  if (!contents) return null
+
+  const page = await extractPage(contents)
+  if (!page) return null
+
+  if (!pageAttachAccepted()) {
+    const label = adapterFor(provider).label
+    const agreed = await confirm({
+      title: `Send this page to ${label}`,
+      message: `Its title, address and ${page.size.toLocaleString()} characters of text go to ${label} along with your question. Long pages are cut at ${PAGE_LIMIT.toLocaleString()}.`,
+      detail: page.url.length > 200 ? `${page.url.slice(0, 200)}...` : page.url,
+      confirmLabel: 'Send',
+      cancelLabel: 'Cancel'
+    })
+    // The prompt held the keyboard while it was up, so the composer takes it back.
+    focusPanel()
+    if (!agreed) return null
+    acceptPageAttach()
+  }
+
+  return { title: page.title, url: page.url, text: page.text }
+}
+
 /** Runs a command against the window that owns the tabs. */
 export function dispatch(command: Command): void {
   if (context) runCommand(command, context)
@@ -375,6 +440,11 @@ export function registerTabsIpc(): void {
     if (context) void showSiteMenu(point, context)
   })
   ipcMain.on('panel:site-zoom', (_event, direction: 1 | -1 | 0) => zoomSite(direction))
+  ipcMain.handle('page:read', () => facingPage())
+  ipcMain.handle('page:capture', async (_event, provider: unknown) => {
+    if (!isProvider(provider)) throw new Error('Unknown provider.')
+    return capturePage(provider)
+  })
   ipcMain.on('panel:copy-page', () => {
     if (context) void copyPageForAi(context)
   })

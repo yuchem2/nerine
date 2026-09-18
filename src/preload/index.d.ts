@@ -15,6 +15,8 @@ import type {
   OverlayMenuItem,
   OverlayMenuRequest,
   OverlayRequest as Request,
+  PageContext as Attached,
+  PageHandle as Facing,
   PanelFrame as Aside,
   PanelMode as Showing,
   ProviderId as Vendor,
@@ -50,6 +52,8 @@ declare global {
     type Model = Listed
     type Models = Listing
     type Turn = Said
+    type Page = Attached
+    type PageHandle = Facing
     type Ask = Question
     type Answer = Replied
     type Usage = Spend

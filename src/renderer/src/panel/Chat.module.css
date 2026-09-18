@@ -101,6 +101,63 @@
   font-size: var(--text-sm);
 }
 
+/* The page the conversation sits next to, on the row the composer reads from. */
+.page {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) 0;
+}
+
+.attached,
+.detached {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  text-align: left;
+  /* One line: a title runs as long as it likes and the row must not grow with it. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.attached {
+  color: var(--fg-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+}
+
+.detached {
+  color: var(--fg-muted);
+  background: none;
+  border: 1px dashed var(--border-subtle);
+}
+
+.summarize {
+  flex: none;
+  padding: var(--space-1) var(--space-3);
+  color: var(--fg-secondary);
+  font-size: var(--text-xs);
+  background: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.summarize:hover:enabled {
+  color: var(--fg-primary);
+  border-color: var(--border-strong);
+}
+
+.summarize:disabled {
+  color: var(--fg-muted);
+  cursor: default;
+}
+
 .composer {
   display: flex;
   flex: none;

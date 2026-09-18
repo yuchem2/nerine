@@ -138,7 +138,22 @@ export default function Chat({ ready, provider, onProvider, onSettings }: Props)
   const [error, setError] = useState('')
   const [asks, setAsks] = useState<Ask[]>([])
   const [period, setPeriod] = useState<Nerine.Window | null>(null)
+  const [page, setPage] = useState<Nerine.PageHandle | null>(null)
+  const [attach, setAttach] = useState(true)
   const end = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    let told = false
+    const stop = window.ai.page.onChange((facing) => {
+      told = true
+      setPage(facing)
+    })
+    // A push sent before this view had loaded is gone, so the first answer is asked for.
+    void window.ai.page.read().then((facing) => {
+      if (!told) setPage(facing)
+    })
+    return stop
+  }, [])
 
   useEffect(() => {
     let current = true
@@ -179,20 +194,46 @@ export default function Chat({ ready, provider, onProvider, onSettings }: Props)
     end.current?.scrollIntoView({ block: 'end' })
   }, [turns, asking])
 
-  const send = async (event: FormEvent): Promise<void> => {
-    event.preventDefault()
-    const question = draft.trim()
+  /*
+   * The page is read again for every question the chip is on for, and sent only when it
+   * differs from the last one sent. Reading costs nothing off this machine, and an
+   * unchanged page is already in the history, so paying for it again buys nothing. What
+   * cannot be trusted is the address: a mail app opens a message and an app swaps its
+   * whole screen without either one being a new page as far as the URL is concerned.
+   */
+  const ask = async (question: string, fromComposer: boolean, wanted = attach): Promise<void> => {
     if (question.length === 0 || asking !== null || model === '') return
 
-    const history: Nerine.Turn[] = [...turns, { role: 'user', text: question }]
+    let attached: Nerine.Page | undefined
+    let current = false
+    if (wanted && page) {
+      const seen = await window.ai.page.capture(provider)
+      // Nothing back means the prompt was declined, so nothing goes out and the draft stays.
+      if (!seen) {
+        setAttach(false)
+        setError('The page was left out. Ask again to send the question without it.')
+        return
+      }
+      current = true
+      const sent = newest(turns)
+      if (!sent || sent.url !== seen.url || sent.text !== seen.text) attached = seen
+    }
+
+    const history: Nerine.Turn[] = [...turns, { role: 'user', text: question, page: attached }]
     const id = Date.now()
     setTurns(history)
-    setDraft('')
+    if (fromComposer) setDraft('')
     setError('')
     setAsking(id)
 
     try {
-      const answer = await window.ai.chat.ask({ id, provider, model, messages: history })
+      const answer = await window.ai.chat.ask({
+        id,
+        provider,
+        model,
+        messages: history,
+        pageIsCurrent: current
+      })
       setTurns([...history, { role: 'assistant', text: answer.text }])
       setAsks(recordAsk(provider, answer.usage))
       // A rolling span moves on, so the window is asked for again with each answer.
@@ -204,11 +245,16 @@ export default function Chat({ ready, provider, onProvider, onSettings }: Props)
     }
   }
 
+  const send = (event: FormEvent): void => {
+    event.preventDefault()
+    void ask(draft.trim(), true)
+  }
+
   const keys = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
     // Enter sends, and a newline needs a modifier, as it does everywhere else.
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
-      void send(event as unknown as FormEvent)
+      void ask(draft.trim(), true)
     }
   }
 
@@ -253,8 +299,8 @@ export default function Chat({ ready, provider, onProvider, onSettings }: Props)
       )}
 
       <div className={styles.thread}>
-        {turns.length === 0 && !asking && (
-          <p className={styles.empty}>Ask anything.</p>
+          {turns.length === 0 && !asking && (
+          <p className={styles.empty}>{page ? 'Ask about this page, or anything else.' : 'Ask anything.'}</p>
         )}
 
         {turns.map((turn, index) => (
@@ -267,6 +313,31 @@ export default function Chat({ ready, provider, onProvider, onSettings }: Props)
         {error && <p className={styles.error}>{error}</p>}
         <div ref={end} />
       </div>
+
+      {page && (
+        <div className={styles.page}>
+          <button
+            type="button"
+            className={attach ? styles.attached : styles.detached}
+            aria-pressed={attach}
+            title={reach(page, provider, attach)}
+            onClick={() => setAttach(!attach)}
+          >
+            {page.title || page.url}
+          </button>
+          <button
+            type="button"
+            className={styles.summarize}
+            disabled={asking !== null || model === ''}
+            onClick={() => {
+              setAttach(true)
+              void ask('Summarize this page.', false, true)
+            }}
+          >
+            Summarize
+          </button>
+        </div>
+      )}
 
       <form className={styles.composer} onSubmit={send}>
         <textarea
@@ -294,6 +365,25 @@ export default function Chat({ ready, provider, onProvider, onSettings }: Props)
       </form>
     </div>
   )
+}
+
+/** The newest page in the conversation, which is the one 'this page' has to mean. */
+function newest(turns: Nerine.Turn[]): Nerine.Page | undefined {
+  for (let index = turns.length - 1; index >= 0; index -= 1) {
+    const { page } = turns[index]
+    if (page) return page
+  }
+  return undefined
+}
+
+/** The chip says only the page's name, so where that page is going is said on hover. */
+function reach(page: Nerine.PageHandle, provider: Nerine.Provider, attach: boolean): string {
+  if (!attach) return `${page.url}
+
+Stays here. Click to send it with your next question.`
+  return `${page.url}
+
+Goes to ${NAMES[provider]} with your next question, unless it is already there unchanged.`
 }
 
 /** Electron prefixes a handler's error with its own wrapper, which is no use to anyone. */

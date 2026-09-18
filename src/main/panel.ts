@@ -12,7 +12,7 @@ import {
   refreshLayout,
   setPanelWidth
 } from './layout'
-import type { PanelFrame, PanelMode, ProviderId } from '../preload'
+import type { PageHandle, PanelFrame, PanelMode, ProviderId } from '../preload'
 
 /*
  * The AI panel is its own view on its own session, not part of the chrome renderer. It
@@ -267,17 +267,18 @@ export function showChat(window: BrowserWindow): void {
   remember()
 }
 
-/** Keeps what the next run should open with, which is only ever four small things. */
+/** Keeps what the next run should open with: which mode, whose site, where, at what zoom. */
 function remember(): void {
   if (!panel) return
 
   const url = panel.site?.webContents.getURL()
+  // Spread, so what was agreed to once is carried rather than listed here.
   remembered = {
+    ...remembered,
     mode: panel.mode,
     provider: panel.siteProvider,
     url: url && url.startsWith('https://') ? url : remembered.url,
-    zoom: panel.siteZoom,
-    shared: remembered.shared
+    zoom: panel.siteZoom
   }
   void writePanelState(remembered)
 }
@@ -301,7 +302,7 @@ export function zoomSite(direction: 1 | -1 | 0): void {
   remember()
 }
 
-/** Whether the page block has been explained once and accepted. */
+/** Whether copying the page block to the clipboard has been explained and accepted. */
 export function pageSharingAccepted(): boolean {
   return remembered.shared
 }
@@ -309,6 +310,28 @@ export function pageSharingAccepted(): boolean {
 export function acceptPageSharing(): void {
   remembered = { ...remembered, shared: true }
   void writePanelState(remembered)
+}
+
+/** The same question for the other destination, which is a provider over the network. */
+export function pageAttachAccepted(): boolean {
+  return remembered.attached
+}
+
+export function acceptPageAttach(): void {
+  remembered = { ...remembered, attached: true }
+  void writePanelState(remembered)
+}
+
+/** Which page the conversation is sitting next to. Only the chat view is ever told. */
+export function tellPanelPage(page: PageHandle | null): void {
+  if (!panel || panel.view.webContents.isDestroyed()) return
+  panel.view.webContents.send('page:current', page)
+}
+
+/** A prompt takes the keyboard while it is up, so the composer takes it back after. */
+export function focusPanel(): void {
+  if (!panel || panel.view.webContents.isDestroyed()) return
+  panel.view.webContents.focus()
 }
 
 /** Says the page went to the clipboard, and how much of it, while that is worth saying. */

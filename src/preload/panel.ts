@@ -1,9 +1,11 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import type {
   AskAnswer,
   AskRequest,
   KeyState,
   ModelList,
+  PageContext,
+  PageHandle,
   ProviderId,
   SaveResult,
   UsageWindow
@@ -25,6 +27,20 @@ const api = {
   panel: {
     // The chrome draws the header, so it has to be told what the panel settled on.
     using: (provider: ProviderId): void => ipcRenderer.send('panel:provider', provider)
+  },
+  page: {
+    /** Which page is in front of the panel, or null when the tab is not one. */
+    read: (): Promise<PageHandle | null> => ipcRenderer.invoke('page:read'),
+    /** The page's text, once the person has been told where it goes and agreed. */
+    capture: (provider: ProviderId): Promise<PageContext | null> =>
+      ipcRenderer.invoke('page:capture', provider),
+    onChange: (listener: (page: PageHandle | null) => void): (() => void) => {
+      const handler = (_event: IpcRendererEvent, page: PageHandle | null): void => listener(page)
+      ipcRenderer.on('page:current', handler)
+      return () => {
+        ipcRenderer.removeListener('page:current', handler)
+      }
+    }
   },
   chat: {
     models: (provider: ProviderId): Promise<ModelList> => ipcRenderer.invoke('ai:models', provider),

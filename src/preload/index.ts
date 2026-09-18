@@ -55,9 +55,22 @@ export interface ModelList {
   live: boolean
 }
 
+/** Enough to name the page in front of the panel, and none of what it says. */
+export interface PageHandle {
+  title: string
+  url: string
+}
+
+/** A page as it goes to a provider, which is the point the text leaves the machine. */
+export interface PageContext extends PageHandle {
+  text: string
+}
+
 export interface ChatTurn {
   role: 'user' | 'assistant'
   text: string
+  /** The page attached to this turn. Only a question ever carries one. */
+  page?: PageContext
 }
 
 export interface AskRequest {
@@ -66,6 +79,11 @@ export interface AskRequest {
   provider: ProviderId
   model: string
   messages: ChatTurn[]
+  /**
+   * Whether the newest page in the conversation is still the one in front of them. An
+   * unchanged page is not sent twice, so its turn alone cannot say whether it is current.
+   */
+  pageIsCurrent: boolean
 }
 
 export interface SaveResult {
