@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import type { WebContents } from 'electron'
 import { PAGE_LIMIT, trimPage } from './prompt'
 
@@ -13,7 +15,42 @@ import { PAGE_LIMIT, trimPage } from './prompt'
  */
 const WORLD = 1
 
-const READ_TEXT = '(() => (document.body ? document.body.innerText : ""))()'
+/*
+ * Readability runs inside the page rather than here. The DOM is already built there, and
+ * whatever scripts put on the page is part of it: sending the HTML out to be parsed again
+ * would cost more and arrive with less. It is externalized like the SDKs, so the library
+ * is read off disk rather than bundled, once per run.
+ */
+const resolveFrom = createRequire(import.meta.url)
+let library: string | null = null
+
+function readability(): string {
+  library ??= readFileSync(resolveFrom.resolve('@mozilla/readability/Readability.js'), 'utf8')
+  return library
+}
+
+// Under this an article is too thin to take over the whole page it was found in.
+const MIN_ARTICLE = 200
+
+/**
+ * The article if there is one, the whole page if there is not. An app rather than a
+ * document, which is most of what a browser holds open, has no article to find: without
+ * the fallback those pages would hand over nothing at all.
+ */
+function script(): string {
+  return `(() => {
+${readability()}
+const whole = document.body ? document.body.innerText : ''
+try {
+  // Readability rewrites what it walks, so it is given a copy and the page keeps its own.
+  const article = new Readability(document.cloneNode(true)).parse()
+  const text = article && article.textContent ? article.textContent.trim() : ''
+  return text.length >= ${MIN_ARTICLE} ? text : whole
+} catch (failure) {
+  return whole
+}
+})()`
+}
 
 export interface Extracted {
   title: string
@@ -44,7 +81,7 @@ export async function extractPage(contents: WebContents): Promise<Extracted | nu
 async function read(contents: WebContents): Promise<string> {
   try {
     const text: unknown = await contents.executeJavaScriptInIsolatedWorld(WORLD, [
-      { code: READ_TEXT }
+      { code: script() }
     ])
     return typeof text === 'string' ? text : ''
   } catch {
