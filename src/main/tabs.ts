@@ -441,6 +441,10 @@ export function registerTabsIpc(): void {
   })
   ipcMain.on('panel:site-zoom', (_event, direction: 1 | -1 | 0) => zoomSite(direction))
   ipcMain.handle('page:read', () => facingPage())
+  ipcMain.on('page:open-link', (_event, url: unknown) => {
+    // A model wrote this address, not the person, so only the two schemes a tab is for.
+    if (typeof url === 'string' && /^https?:\/\//.test(url)) context?.tabs.create(url, true)
+  })
   ipcMain.handle('page:capture', async (_event, provider: unknown) => {
     if (!isProvider(provider)) throw new Error('Unknown provider.')
     return capturePage(provider)

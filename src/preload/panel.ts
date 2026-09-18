@@ -34,6 +34,8 @@ const api = {
     /** The page's text, once the person has been told where it goes and agreed. */
     capture: (provider: ProviderId): Promise<PageContext | null> =>
       ipcRenderer.invoke('page:capture', provider),
+    /** A link in an answer. Main checks the scheme: a model wrote this address. */
+    openLink: (url: string): void => ipcRenderer.send('page:open-link', url),
     onChange: (listener: (page: PageHandle | null) => void): (() => void) => {
       const handler = (_event: IpcRendererEvent, page: PageHandle | null): void => listener(page)
       ipcRenderer.on('page:current', handler)

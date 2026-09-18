@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type JSX, type KeyboardEvent } from 'react'
+import Markdown, { type Components } from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import Picker from '@renderer/panel/Picker'
 import { NAMES } from '@renderer/panel/providers'
 import styles from '@renderer/panel/Chat.module.css'
@@ -127,6 +129,31 @@ function write(key: string, value: string): void {
   } catch {
     // A panel that cannot remember still works.
   }
+}
+
+/*
+ * An answer is Markdown, and reading it raw is reading the asterisks. Raw HTML inside it
+ * is not rendered: react-markdown drops it unless a plugin puts it back, and none does.
+ */
+const MARKDOWN: Components = {
+  a: ({ href, children }) => (
+    <a
+      href={href}
+      onClick={(event) => {
+        // Following it here would replace the conversation with the page.
+        event.preventDefault()
+        if (href) window.ai.page.openLink(href)
+      }}
+    >
+      {children}
+    </a>
+  ),
+  // The one thing an answer holds that will not fit the panel's width.
+  table: ({ children }) => (
+    <div className={styles.scroller}>
+      <table>{children}</table>
+    </div>
+  )
 }
 
 export default function Chat({ ready, provider, onProvider, onSettings }: Props): JSX.Element {
@@ -303,11 +330,19 @@ export default function Chat({ ready, provider, onProvider, onSettings }: Props)
           <p className={styles.empty}>{page ? 'Ask about this page, or anything else.' : 'Ask anything.'}</p>
         )}
 
-        {turns.map((turn, index) => (
-          <div key={index} className={turn.role === 'user' ? styles.asked : styles.answered}>
-            {turn.text}
-          </div>
-        ))}
+        {turns.map((turn, index) =>
+          turn.role === 'user' ? (
+            <div key={index} className={styles.asked}>
+              {turn.text}
+            </div>
+          ) : (
+            <div key={index} className={styles.answered}>
+              <Markdown remarkPlugins={[remarkGfm]} components={MARKDOWN}>
+                {turn.text}
+              </Markdown>
+            </div>
+          )
+        )}
 
         {asking !== null && <div className={styles.waiting}>Thinking</div>}
         {error && <p className={styles.error}>{error}</p>}

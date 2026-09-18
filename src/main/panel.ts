@@ -1,5 +1,6 @@
 import { session, shell, WebContentsView, type BrowserWindow, type Rectangle } from 'electron'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { adapterFor } from './ai/registry'
 import { FIRST_RUN, readPanelState, writePanelState, type PanelState } from './panelstate'
 import { nextZoom } from './zoom'
@@ -125,8 +126,21 @@ export function openPanel(window: BrowserWindow): void {
   window.contentView.addChildView(view)
 
   const rendererUrl = process.env['ELECTRON_RENDERER_URL']
-  if (rendererUrl) void view.webContents.loadURL(`${rendererUrl}/panel.html`)
-  else void view.webContents.loadFile(join(import.meta.dirname, '../renderer/panel.html'))
+  const page = join(import.meta.dirname, '../renderer/panel.html')
+  const own = rendererUrl ? `${rendererUrl}/panel.html` : pathToFileURL(page).href
+
+  /*
+   * Nothing replaces the conversation. An answer is written by a model and can hold any
+   * address it likes: followed in here it would take the panel with it, so a link goes to
+   * a tab and this view stays on the one page it was given.
+   */
+  view.webContents.on('will-navigate', (details) => {
+    if (!details.url.startsWith(own)) details.preventDefault()
+  })
+  view.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+
+  if (rendererUrl) void view.webContents.loadURL(own)
+  else void view.webContents.loadFile(page)
 
   panel = {
     window,

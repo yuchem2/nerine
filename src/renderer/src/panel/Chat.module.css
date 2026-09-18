@@ -68,7 +68,6 @@
 
 .asked,
 .answered {
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
   /* The conversation is text worth copying, unlike the rest of the chrome. */
   user-select: text;
@@ -80,10 +79,127 @@
   padding: var(--space-3) var(--space-4);
   background: var(--bg-surface);
   border-radius: var(--radius-lg);
+  /* Typed by hand, so its own line breaks are the only markup it has. */
+  white-space: pre-wrap;
 }
 
 .answered {
   color: var(--fg-primary);
+}
+
+/*
+ * An answer arrives as Markdown and is rendered, so what follows styles the elements it
+ * turns into. They carry no classes of their own, which is why these are descendants.
+ */
+.answered > :first-child {
+  margin-top: 0;
+}
+
+.answered > :last-child {
+  margin-bottom: 0;
+}
+
+.answered p,
+.answered ul,
+.answered ol,
+.answered blockquote {
+  margin: var(--space-3) 0;
+}
+
+.answered h1,
+.answered h2,
+.answered h3,
+.answered h4,
+.answered h5,
+.answered h6 {
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.answered h1,
+.answered h2 {
+  font-size: var(--text-lg);
+}
+
+.answered ul,
+.answered ol {
+  /* Enough for the marker and no more: the panel has little width to give away. */
+  padding-left: var(--space-5);
+}
+
+.answered li {
+  margin: var(--space-1) 0;
+}
+
+.answered li > p {
+  margin: 0;
+}
+
+.answered a {
+  color: var(--accent);
+}
+
+.answered a:hover {
+  color: var(--accent-hover);
+}
+
+.answered code {
+  padding: 0 var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  background: var(--bg-surface);
+  border-radius: var(--radius-sm);
+}
+
+.answered pre {
+  margin: var(--space-3) 0;
+  padding: var(--space-3);
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  /* A line of code is as long as it is, and wrapping it hides where it breaks. */
+  overflow-x: auto;
+}
+
+.answered pre code {
+  padding: 0;
+  background: none;
+}
+
+.answered blockquote {
+  padding-left: var(--space-3);
+  color: var(--fg-secondary);
+  border-left: 2px solid var(--border-strong);
+}
+
+.answered hr {
+  margin: var(--space-4) 0;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* A table is the one thing here wider than the panel, so it scrolls on its own. */
+.scroller {
+  margin: var(--space-3) 0;
+  overflow-x: auto;
+}
+
+.scroller table {
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.scroller th,
+.scroller td {
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  white-space: nowrap;
+  border: 1px solid var(--border-subtle);
+}
+
+.scroller th {
+  background: var(--bg-surface);
+  font-weight: 600;
 }
 
 .waiting {
