@@ -168,6 +168,7 @@ export default function Chat({ ready, provider, onProvider, onSettings }: Props)
   const [period, setPeriod] = useState<Nerine.Window | null>(null)
   const [page, setPage] = useState<Nerine.PageHandle | null>(null)
   const [attach, setAttach] = useState(true)
+  const [pendingSelection, setPendingSelection] = useState<string | null>(null)
   const end = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -182,6 +183,8 @@ export default function Chat({ ready, provider, onProvider, onSettings }: Props)
     })
     return stop
   }, [])
+
+  useEffect(() => window.ai.panel.onAskSelection(setPendingSelection), [])
 
   useEffect(() => {
     let current = true
@@ -277,6 +280,15 @@ export default function Chat({ ready, provider, onProvider, onSettings }: Props)
       setStreaming('')
     }
   }
+
+  // Held until a model is picked, since the button may have just opened this panel. Main
+  // hands over the question already worded: it is the one that knows which button was hit.
+  useEffect(() => {
+    if (pendingSelection === null || model === '') return
+    const question = pendingSelection
+    setPendingSelection(null)
+    void ask(question, false, false)
+  }, [pendingSelection, model])
 
   const send = (event: FormEvent): void => {
     event.preventDefault()

@@ -1,4 +1,4 @@
-import { ipcMain, WebContentsView, type BrowserWindow } from 'electron'
+import { ipcMain, WebContentsView, type BrowserWindow, type Rectangle } from 'electron'
 import { join } from 'node:path'
 import { contentBounds, onLayoutChange } from './layout'
 import type { OverlayMenuRequest, OverlayRequest, ZoomState } from '../preload'
@@ -21,12 +21,14 @@ interface Overlay {
   view: WebContentsView | null
   ready: Promise<void>
   /** 'blocking' is a dialog or a menu, which covers everything and takes focus. */
-  mode: 'idle' | 'blocking' | 'zoom'
+  mode: 'idle' | 'blocking' | 'zoom' | 'selection'
   answer: ((value: unknown) => void) | null
   dismiss: (() => void) | null
   linger: NodeJS.Timeout | null
   /** Bottom right of the address bar, reported by the chrome. */
   anchor: { x: number; y: number }
+  /** What the floating selection buttons do, since they answer no promise. */
+  selectionPick: ((action: string) => void) | null
 }
 
 let overlay: Overlay | null = null
@@ -41,13 +43,15 @@ export function attachOverlay(window: BrowserWindow): void {
     answer: null,
     dismiss: null,
     linger: null,
-    anchor: { x: 0, y: 0 }
+    anchor: { x: 0, y: 0 },
+    selectionPick: null
   }
 
   onLayoutChange(() => {
     if (!overlay?.view) return
-    // The popup is placed against a rect the chrome measured, so a resize takes it down.
+    // Both are placed against a rect the chrome measured, so a resize takes them down.
     if (overlay.mode === 'zoom') closeZoom(overlay)
+    else if (overlay.mode === 'selection') hideSelectionButton()
     else if (overlay.mode === 'blocking') overlay.view.setBounds(contentBounds(overlay.window))
   })
 
@@ -60,6 +64,9 @@ export function attachOverlay(window: BrowserWindow): void {
 export function registerOverlayIpc(): void {
   ipcMain.on('overlay:respond', (_event, confirmed: boolean) => settle(confirmed))
   ipcMain.on('overlay:pick', (_event, id: string | null) => settle(id))
+  ipcMain.on('overlay:selection-pick', (_event, action: unknown) => {
+    if (typeof action === 'string') overlay?.selectionPick?.(action)
+  })
   ipcMain.on('chrome:zoom-anchor', (_event, anchor: { x: number; y: number }) => {
     if (overlay) overlay.anchor = anchor
   })
@@ -91,6 +98,7 @@ async function present<T>(
 
   const current = overlay
   closeZoom(current)
+  hideSelectionButton()
   current.mode = 'blocking'
 
   const view = ensureView(current)
@@ -132,6 +140,7 @@ function settle(value: unknown): void {
 /** Shows the zoom row under the address bar. Skipped while a dialog or a menu is up. */
 export async function showZoom(state: ZoomState): Promise<void> {
   if (!overlay || overlay.mode === 'blocking') return
+  hideSelectionButton()
 
   const current = overlay
   const view = ensureView(current)
@@ -184,6 +193,40 @@ function clearLinger(current: Overlay): void {
   if (!current.linger) return
   clearTimeout(current.linger)
   current.linger = null
+}
+
+/** Shows the floating buttons near a text selection. Skipped while a dialog or a menu is up. */
+export function showSelectionButton(rect: Rectangle, onPick: (action: string) => void): void {
+  if (!overlay || overlay.mode === 'blocking') return
+  if (overlay.mode === 'zoom') closeZoom(overlay)
+
+  const current = overlay
+  const view = ensureView(current)
+  void current.ready.then(() => {
+    if (overlay !== current || current.mode === 'blocking') return
+
+    const { window } = current
+    if (current.mode !== 'selection') {
+      window.contentView.removeChildView(view)
+      window.contentView.addChildView(view)
+      view.setBackgroundColor(CLEAR_BACKGROUND)
+      view.setVisible(true)
+    }
+    view.setBounds(rect)
+    // No focus: clicking it should not take the selection away from the page first.
+    current.mode = 'selection'
+    current.selectionPick = onPick
+    view.webContents.send('overlay:selection', true)
+  })
+}
+
+export function hideSelectionButton(): void {
+  if (!overlay || overlay.mode !== 'selection') return
+
+  overlay.mode = 'idle'
+  overlay.selectionPick = null
+  overlay.view?.setVisible(false)
+  overlay.view?.webContents.send('overlay:selection', null)
 }
 
 function closeZoom(current: Overlay): void {

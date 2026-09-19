@@ -90,16 +90,22 @@ export async function withBrowser(run) {
         await wait(2200)
       },
 
+      /** The layer above the pages, for whatever is floating there right now. */
+      overlay: async () => {
+        const view = await attach(await find((target) => target.url.endsWith('/overlay.html')))
+        opened.push(view)
+        return view
+      },
+
       /** Answers the prompt that stands between a page and a provider, and says what it read. */
       answerPrompt: async (label) => {
-        const overlay = await attach(await find((target) => target.url.endsWith('/overlay.html')))
+        const overlay = await browser.overlay()
         await overlay.until(buttonExists(label))
         // Read before the click: answering it takes the words off the screen.
         const said = await overlay.evaluate('document.body.innerText')
         await click(overlay, label)
         // Confirming is what starts the ask, so this is the wait that has to cover streaming.
         await wait(2200)
-        opened.push(overlay)
         return said.split(String.fromCharCode(10)).filter(Boolean).join(' / ')
       },
 

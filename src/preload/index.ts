@@ -261,7 +261,15 @@ const api = {
         ipcRenderer.removeListener('overlay:zoom', handler)
       }
     },
-    zoomAction: (action: ZoomAction): void => ipcRenderer.send('overlay:zoom-action', action)
+    zoomAction: (action: ZoomAction): void => ipcRenderer.send('overlay:zoom-action', action),
+    onSelection: (listener: (showing: boolean | null) => void): (() => void) => {
+      const handler = (_event: IpcRendererEvent, showing: boolean | null): void => listener(showing)
+      ipcRenderer.on('overlay:selection', handler)
+      return () => {
+        ipcRenderer.removeListener('overlay:selection', handler)
+      }
+    },
+    selectionPick: (action: string): void => ipcRenderer.send('overlay:selection-pick', action)
   }
 } as const
 

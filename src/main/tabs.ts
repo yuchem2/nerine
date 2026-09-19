@@ -18,6 +18,7 @@ import { canExtract, extractPage } from './ai/extract'
 import { cardBounds, onLayoutChange, pageBounds } from './layout'
 import {
   acceptPageAttach,
+  askSelection,
   focusPanel,
   pageAttachAccepted,
   panelFrame,
@@ -26,9 +27,20 @@ import {
   showChat,
   showSite,
   tellPanelPage,
+  translateLanguages,
   zoomSite
 } from './panel'
-import { confirm, hideZoom, holdZoom, isZoomShowing, showZoom } from './overlay'
+import {
+  confirm,
+  hideSelectionButton,
+  hideZoom,
+  holdZoom,
+  isZoomShowing,
+  menu,
+  showSelectionButton,
+  showZoom
+} from './overlay'
+import { readSelection } from './selection'
 import { trackPage } from './perf'
 import { adapterFor } from './ai/registry'
 import { PAGE_LIMIT } from './ai/prompt'
@@ -54,6 +66,12 @@ const HOME_URL = 'https://google.com'
 const NEW_TAB_URL = 'about:blank'
 // The scheme is the only part of the prompt a link supplies, so it cannot run long.
 const MAX_SCHEME_LABEL = 32
+
+const SELECTION_POLL_MS = 400
+// Wide enough for both buttons: 'Explain' and 'Translate' side by side, with room to spare.
+// Too tight and 'Translate' clips, which cost more than looks: a click aimed at the letters
+// that got cut lands past the view, on the page, and that click is what clears the selection.
+const SELECTION_BUTTON = { width: 208, height: 32, gap: 8 }
 
 interface Tab {
   id: number
@@ -87,6 +105,9 @@ export function attachTabs(window: BrowserWindow): void {
   let asking = false
   let lastChrome = ''
   let lastPage = ''
+  let lastSelection = ''
+  // The button answers once and hides; the same text picked again should not bring it back.
+  let actionedSelection = ''
 
   /**
    * The page picked this scheme, not the user, so anything unfamiliar is confirmed
@@ -187,6 +208,60 @@ export function attachTabs(window: BrowserWindow): void {
     tellPanelPage(page)
   }
 
+  /** Polls the active tab for a selection, since nothing pushes one out on its own. */
+  const pollSelection = async (): Promise<void> => {
+    const tab = active()
+    if (!tab) return
+
+    const found = await readSelection(tab.view.webContents)
+    const text = found?.text ?? ''
+    if (text === lastSelection) return
+    lastSelection = text
+
+    if (!found || text === actionedSelection) {
+      hideSelectionButton()
+      return
+    }
+
+    // getBoundingClientRect answers in the page's own CSS pixels, which a page zoom scales
+    // against the view's actual size: 1 CSS px is `zoom` view pixels, not one.
+    const zoom = tab.view.webContents.getZoomFactor()
+    const rectX = found.rect.x * zoom
+    const rectY = found.rect.y * zoom
+    const rectHeight = found.rect.height * zoom
+
+    const area = pageBounds(window)
+    const above = area.y + rectY - SELECTION_BUTTON.height - SELECTION_BUTTON.gap
+    const rect = {
+      x: Math.min(Math.max(area.x + rectX, area.x), area.x + area.width - SELECTION_BUTTON.width),
+      y: above >= area.y ? above : area.y + rectY + rectHeight + SELECTION_BUTTON.gap,
+      width: SELECTION_BUTTON.width,
+      height: SELECTION_BUTTON.height
+    }
+
+    showSelectionButton(rect, (action) => {
+      if (action !== 'explain' && action !== 'translate') return
+      actionedSelection = text
+      hideSelectionButton()
+
+      if (action === 'explain') {
+        askSelection(window, 'explain', text)
+        return
+      }
+
+      // A short, fixed list rather than every language there is, so picking one stays quick.
+      const choices = translateLanguages()
+      void menu({
+        x: rect.x,
+        y: rect.y + rect.height + SELECTION_BUTTON.gap,
+        entries: choices.map(({ id, label }) => ({ id, label, enabled: true }))
+      }).then((picked) => {
+        const chosen = choices.find((choice) => choice.id === picked)
+        if (chosen) askSelection(window, 'translate', text, chosen.name)
+      })
+    })
+  }
+
   const select = (id: number): void => {
     const tab = find(id)
     if (!tab) return
@@ -198,6 +273,9 @@ export function attachTabs(window: BrowserWindow): void {
     }
     // The popup belongs to the tab it was opened for.
     hideZoom()
+    hideSelectionButton()
+    lastSelection = ''
+    actionedSelection = ''
     activeId = id
     layout()
     tab.view.webContents.focus()
@@ -347,7 +425,9 @@ export function attachTabs(window: BrowserWindow): void {
   const ctx: CommandContext = { window, tabs: controller }
 
   onLayoutChange(layout)
+  const selectionTimer = setInterval(() => void pollSelection(), SELECTION_POLL_MS)
   window.on('closed', () => {
+    clearInterval(selectionTimer)
     for (const tab of open) closeDevTools(tab.view.webContents)
     context = null
   })

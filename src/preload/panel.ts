@@ -26,7 +26,15 @@ const api = {
   },
   panel: {
     // The chrome draws the header, so it has to be told what the panel settled on.
-    using: (provider: ProviderId): void => ipcRenderer.send('panel:provider', provider)
+    using: (provider: ProviderId): void => ipcRenderer.send('panel:provider', provider),
+    /** The floating button on a page selection, asking this conversation to explain it. */
+    onAskSelection: (listener: (text: string) => void): (() => void) => {
+      const handler = (_event: IpcRendererEvent, text: string): void => listener(text)
+      ipcRenderer.on('panel:ask-selection', handler)
+      return () => {
+        ipcRenderer.removeListener('panel:ask-selection', handler)
+      }
+    }
   },
   page: {
     /** Which page is in front of the panel, or null when the tab is not one. */

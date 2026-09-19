@@ -1,4 +1,4 @@
-import { session, shell, WebContentsView, type BrowserWindow, type Rectangle } from 'electron'
+import { app, session, shell, WebContentsView, type BrowserWindow, type Rectangle } from 'electron'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { adapterFor } from './ai/registry'
@@ -56,6 +56,8 @@ interface Panel {
   window: BrowserWindow
   /** Our own page, which holds the conversation. */
   view: WebContentsView
+  /** Resolves once `view` has loaded, so nothing is sent to it too soon. */
+  ready: Promise<void>
   /** The provider's site, made the first time it is asked for. */
   site: WebContentsView | null
   siteOf: ProviderId | null
@@ -139,12 +141,17 @@ export function openPanel(window: BrowserWindow): void {
   })
   view.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
 
+  const ready = new Promise<void>((resolve) => {
+    view.webContents.once('did-finish-load', () => resolve())
+  })
+
   if (rendererUrl) void view.webContents.loadURL(own)
   else void view.webContents.loadFile(page)
 
   panel = {
     window,
     view,
+    ready,
     site: null,
     siteOf: null,
     siteProvider: remembered.provider,
@@ -346,6 +353,61 @@ export function tellPanelPage(page: PageHandle | null): void {
 export function focusPanel(): void {
   if (!panel || panel.view.webContents.isDestroyed()) return
   panel.view.webContents.focus()
+}
+
+export type SelectionAction = 'explain' | 'translate'
+
+/** Opens the panel on the selected text, the way one of the floating buttons asks for it. */
+export function askSelection(
+  window: BrowserWindow,
+  action: SelectionAction,
+  text: string,
+  language?: string
+): void {
+  if (!panel || panel.window !== window) openPanel(window)
+  if (!panel || panel.window !== window) return
+
+  showChat(window)
+  const current = panel
+  const question = selectionQuestion(action, text, language)
+  void current.ready.then(() => {
+    if (panel === current) current.view.webContents.send('panel:ask-selection', question)
+  })
+}
+
+function selectionQuestion(action: SelectionAction, text: string, language?: string): string {
+  const quoted = `"${text}"`
+  if (action === 'translate') return `Translate this into ${language ?? systemLanguage()}:\n\n${quoted}`
+  // Written in English so the instruction itself never reads as what language to answer in.
+  return `Explain this, replying in the language it is written in:\n\n${quoted}`
+}
+
+export interface LanguageChoice {
+  id: string
+  /** The language's own name, which is what goes to a provider. */
+  name: string
+  /** What the picker shows, which may say more than the name does. */
+  label: string
+}
+
+// Enough to cover the common case without turning the picker into every language there is.
+const QUICK_LANGUAGES = ['en', 'ko', 'ja', 'zh', 'es', 'fr']
+
+/** The machine's own language pinned first, then a short, easy-to-scan list of common ones. */
+export function translateLanguages(): LanguageChoice[] {
+  const system = app.getLocale().split('-')[0]
+  const codes = [system, ...QUICK_LANGUAGES.filter((code) => code !== system)]
+  const names = new Intl.DisplayNames(['en'], { type: 'language' })
+
+  return codes.map((code, index) => {
+    const name = names.of(code) ?? code
+    return { id: code, name, label: index === 0 ? `${name} (default)` : name }
+  })
+}
+
+/** What to translate into when nobody has picked one, such as a direct call with none given. */
+function systemLanguage(): string {
+  return translateLanguages()[0].name
 }
 
 /** Says the page went to the clipboard, and how much of it, while that is worth saying. */

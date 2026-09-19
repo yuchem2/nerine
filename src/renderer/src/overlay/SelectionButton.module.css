@@ -1,0 +1,26 @@
+/* The view is cut to this card, so a shadow would be clipped at its edge. */
+.bar {
+  display: flex;
+  height: 100%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.button {
+  flex: 1;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.button:hover {
+  background: var(--bg-hover);
+}
+
+.button + .button {
+  border-left: 1px solid var(--border-subtle);
+}
