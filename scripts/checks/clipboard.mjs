@@ -11,6 +11,13 @@ export const name = 'clipboard'
 const powershell = (command) =>
   execFileSync('powershell', ['-NoProfile', '-Command', command]).toString()
 
+/*
+ * A single quoted PowerShell string is literal, with only the quote itself to escape.
+ * JSON escaping looks close enough to work and is not: a quote or a backslash from it
+ * closes the string early or survives onto the clipboard as a literal character.
+ */
+const literal = (text) => `'${text.replaceAll("'", "''")}'`
+
 export default async function clipboard({ ok, note, skip }) {
   if (process.platform !== 'win32') {
     skip('only Windows can read the clipboard back here')
@@ -27,7 +34,7 @@ export default async function clipboard({ ok, note, skip }) {
   try {
     await withBrowser(async (browser) => {
       await browser.goto('article.html')
-      powershell('Set-Clipboard -Value "CLIPBOARD_UNTOUCHED"')
+      powershell(`Set-Clipboard -Value ${literal('CLIPBOARD_UNTOUCHED')}`)
 
       await browser.chrome.evaluate('window.nerine.panel.copyPage()')
       note('prompt', await browser.answerPrompt('Copy'))
@@ -43,7 +50,7 @@ export default async function clipboard({ ok, note, skip }) {
   } finally {
     // Back to what it held, blank included. What could not be read is cleared rather than
     // left holding a page nobody asked to copy.
-    if (held) powershell(`Set-Clipboard -Value ${JSON.stringify(held)}`)
+    if (held) powershell(`Set-Clipboard -Value ${literal(held)}`)
     else powershell('$null | Set-Clipboard')
   }
 }
