@@ -86,7 +86,8 @@ export async function withBrowser(run) {
           })()
         `)
         await click(panel, 'Send')
-        await wait(1600)
+        // An answer now streams in over real time rather than landing in one piece.
+        await wait(2200)
       },
 
       /** Answers the prompt that stands between a page and a provider, and says what it read. */
@@ -96,7 +97,8 @@ export async function withBrowser(run) {
         // Read before the click: answering it takes the words off the screen.
         const said = await overlay.evaluate('document.body.innerText')
         await click(overlay, label)
-        await wait(800)
+        // Confirming is what starts the ask, so this is the wait that has to cover streaming.
+        await wait(2200)
         opened.push(overlay)
         return said.split(String.fromCharCode(10)).filter(Boolean).join(' / ')
       },

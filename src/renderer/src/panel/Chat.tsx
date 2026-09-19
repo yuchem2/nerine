@@ -162,6 +162,7 @@ export default function Chat({ ready, provider, onProvider, onSettings }: Props)
   const [turns, setTurns] = useState<Nerine.Turn[]>([])
   const [draft, setDraft] = useState('')
   const [asking, setAsking] = useState<number | null>(null)
+  const [streaming, setStreaming] = useState('')
   const [error, setError] = useState('')
   const [asks, setAsks] = useState<Ask[]>([])
   const [period, setPeriod] = useState<Nerine.Window | null>(null)
@@ -219,7 +220,7 @@ export default function Chat({ ready, provider, onProvider, onSettings }: Props)
 
   useEffect(() => {
     end.current?.scrollIntoView({ block: 'end' })
-  }, [turns, asking])
+  }, [turns, asking, streaming])
 
   /*
    * The page is read again for every question the chip is on for, and sent only when it
@@ -252,23 +253,28 @@ export default function Chat({ ready, provider, onProvider, onSettings }: Props)
     if (fromComposer) setDraft('')
     setError('')
     setAsking(id)
+    setStreaming('')
+    let sofar = ''
 
     try {
-      const answer = await window.ai.chat.ask({
-        id,
-        provider,
-        model,
-        messages: history,
-        pageIsCurrent: current
-      })
+      const answer = await window.ai.chat.ask(
+        { id, provider, model, messages: history, pageIsCurrent: current },
+        (text) => {
+          sofar += text
+          setStreaming(sofar)
+        }
+      )
       setTurns([...history, { role: 'assistant', text: answer.text }])
       setAsks(recordAsk(provider, answer.usage))
       // A rolling span moves on, so the window is asked for again with each answer.
       void window.ai.chat.usageWindow(provider).then(setPeriod)
     } catch (failure) {
+      // Stopped or not, whatever streamed in is kept rather than thrown away.
+      if (sofar) setTurns([...history, { role: 'assistant', text: sofar }])
       setError(reasonFrom(failure))
     } finally {
       setAsking(null)
+      setStreaming('')
     }
   }
 
@@ -344,7 +350,14 @@ export default function Chat({ ready, provider, onProvider, onSettings }: Props)
           )
         )}
 
-        {asking !== null && <div className={styles.waiting}>Thinking</div>}
+        {asking !== null && streaming === '' && <div className={styles.waiting}>Thinking</div>}
+        {asking !== null && streaming !== '' && (
+          <div className={styles.answered}>
+            <Markdown remarkPlugins={[remarkGfm]} components={MARKDOWN}>
+              {streaming}
+            </Markdown>
+          </div>
+        )}
         {error && <p className={styles.error}>{error}</p>}
         <div ref={end} />
       </div>

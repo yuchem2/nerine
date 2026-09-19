@@ -17,9 +17,9 @@ export const openaiAdapter: Adapter = {
   quota: { kind: 'rolling', hours: 24 },
   fallbackModels: [{ id: 'gpt-5.1', label: 'GPT-5.1', chat: true }],
 
-  async ask(key: string, request: AskRequest): Promise<Answer> {
+  async ask(key: string, request: AskRequest, onDelta: (text: string) => void): Promise<Answer> {
     try {
-      const response = await client(key).responses.create(
+      const stream = client(key).responses.stream(
         {
           model: request.model,
           instructions: request.system,
@@ -27,6 +27,8 @@ export const openaiAdapter: Adapter = {
         },
         { signal: request.signal }
       )
+      stream.on('response.output_text.delta', (event) => onDelta(event.delta))
+      const response = await stream.finalResponse()
       const usage = response.usage
       return {
         text: response.output_text.trim(),

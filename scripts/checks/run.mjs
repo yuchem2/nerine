@@ -3,6 +3,7 @@ import readability from './readability.mjs'
 import freshness from './freshness.mjs'
 import markdown from './markdown.mjs'
 import clipboard from './clipboard.mjs'
+import streaming from './streaming.mjs'
 
 /*
  * Drives the built app and asks it what it did. Nothing here needs a key or reaches a
@@ -10,7 +11,7 @@ import clipboard from './clipboard.mjs'
  * never reads or writes the keys and settings of the browser in daily use.
  */
 
-const SUITES = [pageContext, readability, freshness, markdown, clipboard]
+const SUITES = [pageContext, readability, freshness, markdown, clipboard, streaming]
 
 const only = process.argv[2]
 let failed = 0

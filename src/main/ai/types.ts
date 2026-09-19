@@ -79,7 +79,8 @@ export interface Adapter {
   quota: Quota
   /** Offered before a key exists to ask the provider what it actually has. */
   fallbackModels: Model[]
-  ask: (key: string, request: AskRequest) => Promise<Answer>
+  /** Called with each fragment of text as it arrives, ahead of the full answer. */
+  ask: (key: string, request: AskRequest, onDelta: (text: string) => void) => Promise<Answer>
   listModels: (key: string) => Promise<Model[]>
   /** Throws an AiError the moment the provider turns the key away. */
   verify: (key: string) => Promise<void>

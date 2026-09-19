@@ -18,9 +18,9 @@ export const geminiAdapter: Adapter = {
   quota: { kind: 'calendar', zone: 'America/Los_Angeles' },
   fallbackModels: [{ id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', chat: true }],
 
-  async ask(key: string, request: AskRequest): Promise<Answer> {
+  async ask(key: string, request: AskRequest, onDelta: (text: string) => void): Promise<Answer> {
     try {
-      const response = await client(key).models.generateContent({
+      const stream = await client(key).models.generateContentStream({
         model: request.model,
         // Gemini calls the assistant 'model', and every turn is a list of parts.
         contents: request.messages.map((entry) => ({
@@ -29,17 +29,26 @@ export const geminiAdapter: Adapter = {
         })),
         config: { systemInstruction: request.system, abortSignal: request.signal }
       })
-      // Thinking is billed as output here, so it is counted as output.
-      const usage = response.usageMetadata
-      return {
-        text: (response.text ?? '').trim(),
-        usage: usage
-          ? {
-              input: usage.promptTokenCount ?? 0,
-              output: (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0)
-            }
-          : null
+
+      let text = ''
+      // The last chunk's usage is the total, since Google counts the whole answer there.
+      let usage: Answer['usage'] = null
+      for await (const chunk of stream) {
+        const delta = chunk.text ?? ''
+        if (delta) {
+          text += delta
+          onDelta(delta)
+        }
+        // Thinking is billed as output here, so it is counted as output.
+        const chunkUsage = chunk.usageMetadata
+        if (chunkUsage) {
+          usage = {
+            input: chunkUsage.promptTokenCount ?? 0,
+            output: (chunkUsage.candidatesTokenCount ?? 0) + (chunkUsage.thoughtsTokenCount ?? 0)
+          }
+        }
       }
+      return { text: text.trim(), usage }
     } catch (failure) {
       throw translate(failure, 'ask')
     }

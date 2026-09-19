@@ -16,9 +16,9 @@ export const anthropicAdapter: Adapter = {
     { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', chat: true }
   ],
 
-  async ask(key: string, request: AskRequest): Promise<Answer> {
+  async ask(key: string, request: AskRequest, onDelta: (text: string) => void): Promise<Answer> {
     try {
-      const message = await client(key).messages.create(
+      const stream = client(key).messages.stream(
         {
           model: request.model,
           max_tokens: MAX_TOKENS,
@@ -30,6 +30,8 @@ export const anthropicAdapter: Adapter = {
         },
         { signal: request.signal }
       )
+      stream.on('text', onDelta)
+      const message = await stream.finalMessage()
 
       // Thinking blocks come back empty by default, so only the text is of any use here.
       const text = message.content

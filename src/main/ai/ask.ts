@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { ipcMain, type WebContents } from 'electron'
 import { pageBlock, systemPrompt, type PageStanding } from './prompt'
 import { adapterFor } from './registry'
 import { AiError, type Answer, type ChatMessage, type PageBlock } from './types'
@@ -21,7 +21,7 @@ const MAX_TITLE = 500
 
 const running = new Map<number, AbortController>()
 
-export async function ask(asked: Asked): Promise<Answer> {
+export async function ask(asked: Asked, onDelta: (text: string) => void): Promise<Answer> {
   const { id, provider, messages } = asked
   const key = await readKey(provider)
   if (!key) {
@@ -31,12 +31,16 @@ export async function ask(asked: Asked): Promise<Answer> {
   const controller = new AbortController()
   running.set(id, controller)
   try {
-    return await adapterFor(provider).ask(key, {
-      model: asked.model,
-      system: systemPrompt(standingOf(asked)),
-      messages: messages.map(fold),
-      signal: controller.signal
-    })
+    return await adapterFor(provider).ask(
+      key,
+      {
+        model: asked.model,
+        system: systemPrompt(standingOf(asked)),
+        messages: messages.map(fold),
+        signal: controller.signal
+      },
+      onDelta
+    )
   } finally {
     running.delete(id)
   }
@@ -141,11 +145,32 @@ export function registerAiIpc(): void {
     return models(provider)
   })
 
-  ipcMain.handle('ai:ask', (_event, request: unknown) => ask(parse(request)))
+  ipcMain.on('ai:ask', (event, request: unknown) => {
+    void streamTo(event.sender, request)
+  })
 
   ipcMain.on('ai:cancel', (_event, id: unknown) => {
     if (typeof id === 'number') cancel(id)
   })
+}
+
+/** An answer arrives as a run of events, so this travels over `send`/`on` rather than `invoke`. */
+async function streamTo(sender: WebContents, request: unknown): Promise<void> {
+  let asked: Asked
+  try {
+    asked = parse(request)
+  } catch {
+    // Nothing names an id to reply to, so a malformed request is just dropped.
+    return
+  }
+
+  try {
+    const answer = await ask(asked, (text) => sender.send('ai:delta', asked.id, text))
+    sender.send('ai:done', asked.id, answer)
+  } catch (failure) {
+    const message = failure instanceof Error ? failure.message : 'That did not go through.'
+    sender.send('ai:error', asked.id, message)
+  }
 }
 
 interface Asked {

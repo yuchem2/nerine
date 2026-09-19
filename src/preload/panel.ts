@@ -46,7 +46,32 @@ const api = {
   },
   chat: {
     models: (provider: ProviderId): Promise<ModelList> => ipcRenderer.invoke('ai:models', provider),
-    ask: (request: AskRequest): Promise<AskAnswer> => ipcRenderer.invoke('ai:ask', request),
+    // The answer arrives as a run of events, not one reply, so onDelta hears it as it comes.
+    ask: (request: AskRequest, onDelta: (text: string) => void): Promise<AskAnswer> =>
+      new Promise((resolve, reject) => {
+        const delta = (_event: IpcRendererEvent, id: number, text: string): void => {
+          if (id === request.id) onDelta(text)
+        }
+        const done = (_event: IpcRendererEvent, id: number, answer: AskAnswer): void => {
+          if (id !== request.id) return
+          cleanup()
+          resolve(answer)
+        }
+        const failed = (_event: IpcRendererEvent, id: number, message: string): void => {
+          if (id !== request.id) return
+          cleanup()
+          reject(new Error(message))
+        }
+        const cleanup = (): void => {
+          ipcRenderer.removeListener('ai:delta', delta)
+          ipcRenderer.removeListener('ai:done', done)
+          ipcRenderer.removeListener('ai:error', failed)
+        }
+        ipcRenderer.on('ai:delta', delta)
+        ipcRenderer.on('ai:done', done)
+        ipcRenderer.on('ai:error', failed)
+        ipcRenderer.send('ai:ask', request)
+      }),
     cancel: (id: number): void => ipcRenderer.send('ai:cancel', id),
     usageWindow: (provider: ProviderId): Promise<UsageWindow> =>
       ipcRenderer.invoke('ai:usage-window', provider)
